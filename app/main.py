@@ -40,3 +40,7 @@ if __name__ == "__main__":
         host=settings.APP_HOST, 
         port=settings.APP_PORT
     )
+
+# setup_logging()
+# logger.info(f"Starting app")
+# app = create_app()
