@@ -4,13 +4,15 @@ from app.repositories.asset_repository import (
     create_asset
 )
 
+from app.core.exceptions import NotFoundError
+
 async def list_assets(conn):
     return await get_all_assets(conn)
 
 async def fetch_asset(conn, asset_id):
     asset = await get_asset_by_id(conn, asset_id)
     if not asset:
-        raise ValueError(f'Asset not found: {asset_id}')
+        raise NotFoundError(f'Asset not found: {asset_id}')
     return asset
 
 async def add_asset(conn, data):

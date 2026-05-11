@@ -34,19 +34,21 @@ async def get_asset(request):
     )
 
 async def create_asset_handler(request):
-    try:
-        payload = await request.json()
-        data = AssetCreate(**payload)
-    except ValidationError as e:
-        return web.json_response({
-            "error": e.errors()
-        }, status=400)
+    payload = await request.json()
+    data = AssetCreate(**payload)
 
     async with request.app['db'].acquire() as conn:
         asset = await add_asset(conn, data)
 
+    response = AssetResponse(
+        **dict(asset)
+    ).model_dump()
+
     return web.json_response(
-        dict(asset),
+        {
+            "success": True,
+            "data": response
+        },
         status=201
     )
     

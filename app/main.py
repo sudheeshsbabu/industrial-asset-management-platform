@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.db.postgres import create_db_pool
 from app.middleware.request_logger import request_logging_middleware
+from app.middleware.error_middleware import error_middleware
 from app.api.routes.asset_routes import setup_asset_routes
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ def create_app():
     app = web.Application(
         middlewares=[
             request_logging_middleware,
+            error_middleware
         ]
     )
 
