@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.logging import setup_logging
 from app.db.postgres import create_db_pool
 from app.middleware.request_logger import request_logging_middleware
+from app.api.routes.asset_routes import setup_asset_routes
 
 logger = logging.getLogger(__name__)
 
@@ -13,11 +14,11 @@ async def health(request):
 
 async def on_startup(app):
     logger.info("Creating db pool")
-    app["pool"] = await create_db_pool()
+    app["db"] = await create_db_pool()
 
 async def on_cleanup(app):
     logger.info("Closing db pool")
-    await app["pool"].close()
+    await app["db"].close()
 
 def create_app():
     app = web.Application(
@@ -25,9 +26,13 @@ def create_app():
             request_logging_middleware,
         ]
     )
+
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
+
     app.router.add_get("/health", health)
+    setup_asset_routes(app)
+
     return app
 
 if __name__ == "__main__":
