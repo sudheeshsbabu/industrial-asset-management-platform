@@ -8,6 +8,7 @@ from app.api.routes.asset_routes import setup_asset_routes
 from app.middleware.request_id import request_id_middleware
 from app.middleware.error_middleware import error_middleware
 from app.middleware.request_logger import request_logging_middleware
+from app.core.swagger import setup_swagger
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ def create_app():
 
     app.router.add_get("/health", health)
     setup_asset_routes(app)
+    
+    if settings.APP_ENVIORNMENT != "prod":
+        setup_swagger(app)
 
     return app
 
@@ -49,7 +53,3 @@ if __name__ == "__main__":
         host=settings.APP_HOST, 
         port=settings.APP_PORT
     )
-
-# setup_logging()
-# logger.info(f"Starting app")
-# app = create_app()

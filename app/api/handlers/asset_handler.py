@@ -1,6 +1,8 @@
 from aiohttp import web
 from pydantic import ValidationError
 
+from aiohttp_apispec import docs, response_schema
+
 from app.models.asset import (
     AssetCreate,
     AssetResponse
@@ -12,6 +14,14 @@ from app.services.asset_services import (
     add_asset
 )
 
+from app.models.asset_schema import AssetSchema
+
+@docs(
+    summary="List all assets",
+    description="Get all assets",
+    tags=["assets"],
+)
+@response_schema(AssetSchema(many=True), "200")
 async def get_assets(request):
     async with request.app['db'].acquire() as conn:
         assets = await list_assets(conn)
