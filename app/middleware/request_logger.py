@@ -12,7 +12,11 @@ async def request_logging_middleware(request, handler):
     duration = time.time() - start
 
     logger.info(
-        f"{request.method} {request.path} {response.status} {duration:.4f}s"
+        f"[Request ID: {request['request_id']}] "
+        f"Request: {request.method} "
+        f"{request.path} "
+        f"Status: {response.status} "
+        f"Duration: {duration:.4f}s"
     )
     return response
 
