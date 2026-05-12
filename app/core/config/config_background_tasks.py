@@ -7,21 +7,45 @@ from app.repositories.config_repository import sync_env_to_db
 
 logger = logging.getLogger(__name__)
 
-async def config_refresher_task(app, poll_interval: float = 60.0):
+async def config_refresher_task(app, channel: str = "app_config_changed"):
     """
-    Background task: periodically reloads the in-memory runtime config from
-    the DB so that any admin-level DB changes are reflected without a restart.
+    Background task: listens for PostgreSQL notifications on the specified channel
+    to reload the in-memory runtime config immediately when DB changes occur.
     """
     config_manager = app["config_manager"]
+    loop = asyncio.get_running_loop()
+    event = asyncio.Event()
+
+    def on_notification(conn, pid, channel, payload):
+        logger.info(f"Received DB notification on channel '{channel}'; scheduling config reload.")
+        loop.call_soon_threadsafe(event.set)
+
+    pool = app["db"]
+
     while True:
         try:
-            await config_manager.load(app)
+            async with pool.acquire() as conn:
+                await conn.add_listener(channel, on_notification)
+                logger.info(f"Config refresher subscribed to DB channel '{channel}'")
+                try:
+                    while True:
+                        await event.wait()
+                        event.clear()
+                        try:
+                            await config_manager.load(app)
+                        except Exception as e:
+                            logger.error(f"Config refresh failed upon notification at {time.time()}: {e}")
+                finally:
+                    try:
+                        await conn.remove_listener(channel, on_notification)
+                    except Exception as e:
+                        logger.debug(f"Error removing listener on cleanup: {e}")
         except asyncio.CancelledError:
             logger.info(f"Config refresh background task cancelled at {time.time()}")
             break
         except Exception as e:
-            logger.error(f"Config refresh failed at {time.time()}: {e}")
-        await asyncio.sleep(poll_interval)
+            logger.error(f"Config refresh listener connection error: {e}. Retrying in 5 seconds...")
+            await asyncio.sleep(5.0)
 
 async def env_file_watcher_task(app, env_path: str = ".env", poll_interval: float = 60.0):
     """

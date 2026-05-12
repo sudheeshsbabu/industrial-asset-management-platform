@@ -269,10 +269,10 @@ uv run alembic current
 
 Two `asyncio` tasks run for the lifetime of the application:
 
-| Task | Default interval | Purpose |
+| Task | Trigger | Purpose |
 |---|---|---|
-| `config_refresher_task` | 60 s | Re-reads `app_config` from DB into runtime config — picks up manual DB edits |
-| `env_file_watcher_task` | 60 s | Polls `.env` mtime; syncs only changed keys to DB, then refreshes runtime config |
+| `config_refresher_task` | DB notification (`LISTEN app_config_changed`) | Reloads `app_config` from DB into runtime config immediately when any DB change occurs |
+| `env_file_watcher_task` | Every 60 s (mtime poll) | Polls `.env` mtime; syncs only changed keys to DB, then refreshes runtime config |
 
 Both tasks are started in `on_startup` and gracefully cancelled in `on_cleanup` via `asyncio.gather(return_exceptions=True)`.
 
