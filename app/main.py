@@ -12,7 +12,10 @@ from app.middleware.request_logger import request_logging_middleware
 
 from app.core.config.config import settings
 from app.core.config.config_manager import ConfigManager
-from app.core.config.config_refresh import config_refresh_task
+from app.core.config.config_refresh import (
+    config_refresh_task,
+    env_file_watcher_task
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,14 +30,27 @@ async def on_startup(app):
     await config_manager.load(app)
 
     app["config_manager"] = config_manager
-
+    
+    # Periodically re-read runtime config from DB (picks up admin-level DB edits).
     app["config_background_task"] = asyncio.create_task(
         config_refresh_task(app)
     )
+    
+    # Watch .env file for changes and sync only updated values to DB.
+    app["env_file_watcher_task"] = asyncio.create_task(
+        env_file_watcher_task(app)
+    )
 
 async def on_cleanup(app):
-    logger.info("Cancelling config background task")
+    logger.info("Cancelling background tasks")
     await app["config_background_task"].cancel()
+    await app["env_file_watcher_task"].cancel()
+    
+    await asyncio.gather(
+        app["config_background_task"],
+        app["env_file_watcher_task"],
+        return_exceptions=True
+    )
 
     logger.info("Closing db pool")
     await app["db"].close()
