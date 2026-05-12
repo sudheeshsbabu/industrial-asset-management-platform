@@ -12,7 +12,7 @@ This project involves
 - Liquibase-like migrations
 - deployment concepts
 
-# Project Context
+### Project Context
 
 It is a web platform for managing:
 
@@ -27,7 +27,7 @@ It is a web platform for managing:
 - telemetry
 - audit history
 
-# Technical Details
+### Technical Details
 
 Frontend:
 
@@ -62,7 +62,7 @@ This project naturally includes:
 - API versioning
 - service boundaries
 
-# Phase 1 — Monolithic Async Backend
+### Phase 1 — Monolithic Async Backend
 
 ReactJS + AioHttp + Postgres
 
