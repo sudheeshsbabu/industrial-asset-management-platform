@@ -7,7 +7,7 @@ from app.repositories.config_repository import sync_env_to_db
 
 logger = logging.getLogger(__name__)
 
-async def config_refresh_task(app, poll_interval: float = 60.0):
+async def config_refresher_task(app, poll_interval: float = 60.0):
     """
     Background task: periodically reloads the in-memory runtime config from
     the DB so that any admin-level DB changes are reflected without a restart.
