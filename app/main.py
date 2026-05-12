@@ -41,8 +41,8 @@ async def on_startup(app):
 
 async def on_cleanup(app):
     logger.info("Cancelling background tasks")
-    await app["config_refresher_task"].cancel()
-    await app["env_file_watcher_task"].cancel()
+    app["config_refresher_task"].cancel()
+    app["env_file_watcher_task"].cancel()
     
     await asyncio.gather(
         app["config_refresher_task"],

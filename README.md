@@ -272,7 +272,7 @@ Two `asyncio` tasks run for the lifetime of the application:
 | Task | Trigger | Purpose |
 |---|---|---|
 | `config_refresher_task` | DB notification (`LISTEN app_config_changed`) | Reloads `app_config` from DB into runtime config immediately when any DB change occurs |
-| `env_file_watcher_task` | Every 60 s (mtime poll) | Polls `.env` mtime; syncs only changed keys to DB, then refreshes runtime config |
+| `env_file_watcher_task` | OS file-change event (watchfiles) | Reacts instantly when `.env` is saved; syncs only changed keys to DB, then refreshes runtime config |
 
 Both tasks are started in `on_startup` and gracefully cancelled in `on_cleanup` via `asyncio.gather(return_exceptions=True)`.
 

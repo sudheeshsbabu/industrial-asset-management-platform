@@ -303,6 +303,7 @@ dependencies = [
     { name = "pytest-asyncio" },
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
+    { name = "watchfiles" },
 ]
 
 [package.metadata]
@@ -318,6 +319,7 @@ requires-dist = [
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "sqlalchemy", specifier = ">=2.0.49" },
+    { name = "watchfiles", specifier = ">=1.1.1" },
 ]
 
 [[package]]
