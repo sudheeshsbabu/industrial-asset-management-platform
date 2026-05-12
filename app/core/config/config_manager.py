@@ -28,7 +28,7 @@ class ConfigManager:
         }
 
         self.runtime_config = merged
-        logger.info(f"Config Refreshed at {time.time()}")
+        # logger.info(f"Config Refreshed at {time.time()}")
 
     def get(self, key, default=None):
         return self.runtime_config.get(key, default)
