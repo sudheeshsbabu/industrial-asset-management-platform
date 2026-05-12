@@ -15,7 +15,7 @@ Two complementary mechanisms work together:
 
 | Mechanism | When it runs | What it does |
 |---|---|---|
-| **Env file watcher** | Continuously (every 60 s) | Detects `.env` file changes → upserts only the changed keys to DB → refreshes runtime config |
+| **Env file watcher** | Event-based (OS file-watch) | Receives immediate OS-level notification when `.env` is written → upserts only changed keys to DB → refreshes runtime config |
 | **DB config refresher** | Event-based (on DB notification) | Subscribes to PostgreSQL notifications (`LISTEN app_config_changed`) triggered by DB changes → re-reads `app_config` → updates runtime config |
 
 ---
@@ -187,20 +187,20 @@ Purpose: picks up any **manual changes made directly in the DB** (e.g. via `psql
 
 ---
 
-#### `env_file_watcher_task(app, env_path=".env", poll_interval=60s)`
+#### `env_file_watcher_task(app, env_path=".env")`
 
 ```
 on startup:
-    record .env mtime as baseline
-    call call_sync_env_to_db(app)   ← initial import
+    call call_sync_env_to_db(app)    ← initial import
 
-loop every 60 s:
-    read current mtime of .env
-    if mtime == last_mtime  →  skip (no change)
-    else:
-        update last_mtime
+wait for OS file-change event on .env (watchfiles / native OS API):
+    on modified or added event:
         call call_sync_env_to_db(app)
+    on deleted / other events:
+        skip
 ```
+
+`watchfiles` uses **ReadDirectoryChangesW** on Windows, **inotify** on Linux, and **FSEvents** on macOS — zero polling, instant notification.
 
 #### Helper — `call_sync_env_to_db(app)`
 
@@ -287,9 +287,7 @@ app starts
 ```
 .env edited by developer/ops
     │
-    ├─ (up to 60 s later) env_file_watcher_task wakes up
-    │
-    ├─ os.path.getmtime(".env") != last_mtime  →  change detected
+    ├─ OS emits file-change event  →  watchfiles awatch() yields immediately
     │
     └─ call_sync_env_to_db(app)
             ├─ Settings()            ← new instance reads updated .env
@@ -307,13 +305,7 @@ app starts
                     └─ runtime_config["APP_PORT"] = "9090"
 ```
 
-### No Change Detected
 
-```
-env_file_watcher_task wakes up
-    │
-    └─ mtime == last_mtime  →  continue (sleep again, zero DB activity)
-```
 
 ---
 
@@ -341,12 +333,13 @@ merged = {
 This means an operator can override any env setting directly in the DB and the
 application respects it without a file change or restart.
 
-### File change detection uses mtime polling (not inotify)
+### File change detection uses OS-native events (watchfiles)
 
-`os.path.getmtime()` works cross-platform (Linux, macOS, Windows) and requires no
-OS-level file-watch API. The trade-off is a maximum 60-second lag between a file
-edit and the sync. Adjust `poll_interval` in `env_file_watcher_task` if faster
-detection is needed.
+`watchfiles` wraps the OS-native file-watch API on each platform — **inotify** on
+Linux, **FSEvents** on macOS, **ReadDirectoryChangesW** on Windows. Changes are
+delivered instantly with no polling lag and zero CPU overhead while the file is
+unchanged. The `awatch()` async generator integrates natively with asyncio's event
+loop.
 
 ---
 
@@ -359,5 +352,6 @@ detection is needed.
 | [`app/core/config/config_manager.py`](../app/core/config/config_manager.py) | `ConfigManager` — holds `runtime_config`, orchestrates load & import |
 | [`app/core/config/config_background_tasks.py`](../app/core/config/config_background_tasks.py) | `config_refresher_task` + `env_file_watcher_task` + `call_sync_env_to_db` |
 | [`app/repositories/config_repository.py`](../app/repositories/config_repository.py) | All SQL for `app_config` — fetch, upsert, sync |
-| [`migrations/versions/6a5c1b09f820_create_app_config_table.py`](../migrations/versions/6a5c1b09f820_create_app_config_table.py) | Alembic migration that creates the `app_config` table |
+| [`migrations/versions/6a5c1b09f820_create_app_config_table.py`](../migrations/versions/6a5c1b09f820_create_app_config_table.py) | Alembic migration: creates the `app_config` table |
+| [`migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py`](../migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py) | Alembic migration: adds PG trigger + `NOTIFY` function on `app_config` |
 | [`app/main.py`](../app/main.py) | Wires tasks into aiohttp lifecycle (`on_startup` / `on_cleanup`) |
