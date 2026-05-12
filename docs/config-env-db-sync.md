@@ -5,6 +5,50 @@
 
 ---
 
+## The Core Idea — Zero-Restart Config Updates
+
+> The application **never needs to be restarted** to pick up a configuration change.
+> Edit `.env` (or update the DB directly) and the running app reflects the new values
+> within milliseconds.
+
+The entire system is built around a single self-reinforcing loop:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│   1. Developer/ops edits .env                                   │
+│          │                                                      │
+│          ▼  (OS file-change event — no polling)                 │
+│   2. watchfiles detects the save instantly                      │
+│          │                                                      │
+│          ▼                                                      │
+│   3. Changed keys are upserted into app_config (PostgreSQL)     │
+│          │                                                      │
+│          ▼  (PostgreSQL NOTIFY fired by DB trigger)             │
+│   4. asyncpg LISTEN callback wakes immediately                  │
+│          │                                                      │
+│          ▼                                                      │
+│   5. ConfigManager reloads pydantic Settings from DB            │
+│          │                                                      │
+│          ▼                                                      │
+│   6. runtime_config in memory is up to date — app serves        │
+│      the new values on the very next request                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Three key properties fall out of this design:**
+
+| Property | How it is achieved |
+|---|---|
+| **Instant propagation** | Both triggers are event-based — OS file-watch + PG NOTIFY. No timer fires; no sleep wakes up. |
+| **No duplicate writes** | The SQL `ON CONFLICT … WHERE value != EXCLUDED.value` guard means unchanged keys never touch the DB. |
+| **Admin override survives restarts** | DB values take precedence over `.env` defaults in `runtime_config`, so a value set directly in the DB is preserved even if `.env` is later saved with the old value. |
+
+> **Direct DB edit path:** An operator can also `UPDATE app_config SET value = '…'` directly in `psql`. The same PG NOTIFY trigger fires (step 4 above) and the app picks it up immediately — no `.env` change needed.
+
+---
+
 ## Overview
 
 This feature automatically mirrors every setting defined in the `.env` file into
@@ -19,6 +63,7 @@ Two complementary mechanisms work together:
 | **DB config refresher** | Event-based (on DB notification) | Subscribes to PostgreSQL notifications (`LISTEN app_config_changed`) triggered by DB changes → re-reads `app_config` → updates runtime config |
 
 ---
+
 
 ## Architecture at a Glance
 

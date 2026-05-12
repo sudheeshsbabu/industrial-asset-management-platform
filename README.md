@@ -43,19 +43,19 @@ AssetOps is a web platform that centralises management of industrial assets acro
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                    aiohttp App                       │
-│                                                      │
+│                    aiohttp App                      │
+│                                                     │
 │  ┌──────────────┐   ┌────────────┐  ┌────────────┐  │
-│  │  Middleware   │   │  Handlers  │  │  Services  │  │
-│  │  request-id   │   │  (routes)  │  │ (business  │  │
-│  │  error hdlr   │   │            │  │   logic)   │  │
-│  │  req logger   │   └─────┬──────┘  └─────┬──────┘  │
+│  │  Middleware  │   │  Handlers  │  │  Services  │  │
+│  │  request-id  │   │  (routes)  │  │ (business  │  │
+│  │  error hdlr  │   │            │  │   logic)   │  │
+│  │  req logger  │   └─────┬──────┘  └─────┬──────┘  │
 │  └──────────────┘         │               │         │
 │                           └───────┬───────┘         │
 │                                   │                 │
 │                        ┌──────────▼──────────┐      │
-│                        │    Repositories      │      │
-│                        │  (raw asyncpg SQL)   │      │
+│                        │    Repositories     │      │
+│                        │  (raw asyncpg SQL)  │      │
 │                        └──────────┬──────────┘      │
 │                                   │                 │
 │               ┌───────────────────┼───────────────┐ │
@@ -66,8 +66,8 @@ AssetOps is a web platform that centralises management of industrial assets acro
 └───────────────────────────────────────────────────┘─┘
                             │
                    ┌────────▼────────┐
-                   │   PostgreSQL 16  │
-                   │  (via Docker)    │
+                   │   PostgreSQL 16 │
+                   │  (via Docker)   │
                    └─────────────────┘
 ```
 
