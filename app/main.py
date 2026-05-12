@@ -5,6 +5,7 @@ from aiohttp import web
 from app.db.postgres import create_db_pool
 from app.core.logging import setup_logging
 from app.api.routes.asset_routes import setup_asset_routes
+from app.api.routes.common_routes import setup_common_routes
 
 from app.middleware.request_id import request_id_middleware
 from app.middleware.error_middleware import error_middleware
@@ -18,9 +19,6 @@ from app.core.config.config_background_tasks import (
 )
 
 logger = logging.getLogger(__name__)
-
-async def health(request):
-    return web.json_response({"status" : "ok"})
 
 async def on_startup(app):
     logger.info("Creating db pool")
@@ -68,8 +66,8 @@ def create_app():
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
 
-    app.router.add_get("/health", health)
     setup_asset_routes(app)
+    setup_common_routes(app)
 
     return app
 
