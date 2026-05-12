@@ -16,7 +16,7 @@ Two complementary mechanisms work together:
 | Mechanism | When it runs | What it does |
 |---|---|---|
 | **Env file watcher** | Continuously (every 60 s) | Detects `.env` file changes → upserts only the changed keys to DB → refreshes runtime config |
-| **DB config refresher** | Continuously (every 60 s) | Re-reads `app_config` from DB → merges with env defaults → updates in-memory runtime config |
+| **DB config refresher** | Event-based (on DB notification) | Subscribes to PostgreSQL notifications (`LISTEN app_config_changed`) triggered by DB changes → re-reads `app_config` → updates runtime config |
 
 ---
 
@@ -172,17 +172,18 @@ Two long-running `asyncio` coroutines are created as tasks in `on_startup`.
 
 ---
 
-#### `config_refresher_task(app, poll_interval=60s)`
+#### `config_refresher_task(app, channel="app_config_changed")`
 
 ```
-loop every 60 s:
-    ConfigManager.load(app)
-        → fetch app_config from DB
-        → merge with current env defaults
-        → update runtime_config in memory
+listen on 'app_config_changed' channel:
+    on notification received:
+        ConfigManager.load(app)
+            → fetch app_config from DB
+            → merge with current env defaults
+            → update runtime_config in memory
 ```
 
-Purpose: picks up any **manual changes made directly in the DB** (e.g. via `psql` or an admin tool) without restarting the application.
+Purpose: picks up any **manual changes made directly in the DB** (e.g. via `psql` or an admin tool) immediately without restarting the application, powered by a database trigger sending `NOTIFY app_config_changed`.
 
 ---
 
@@ -229,7 +230,7 @@ async def on_startup(app):
     await config_manager.load(app)          # initial in-memory load
     app["config_manager"] = config_manager
 
-    # Task 1: re-read DB → update runtime_config every 60 s
+    # Task 1: listen for DB notifications → update runtime_config immediately
     app["config_refresher_task"] = asyncio.create_task(config_refresher_task(app))
 
     # Task 2: watch .env → sync changed keys to DB → update runtime_config

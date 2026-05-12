@@ -29,7 +29,7 @@ async def on_startup(app):
 
     app["config_manager"] = config_manager
     
-    # Periodically re-read runtime config from DB (picks up admin-level DB edits).
+    # Listen for DB notifications to reload runtime config immediately on DB edits.
     app["config_refresher_task"] = asyncio.create_task(
         config_refresher_task(app)
     )
