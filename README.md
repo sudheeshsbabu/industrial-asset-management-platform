@@ -59,10 +59,11 @@ AssetOps is a web platform that centralises management of industrial assets acro
 │                        └──────────┬──────────┘      │
 │                                   │                 │
 │               ┌───────────────────┼───────────────┐ │
-│               │  Background Tasks │               │ │
-│               │  config_refresher │               │ │
-│               │  env_file_watcher │               │ │
-│               └───────────────────┘               │ │
+│               │  Background Tasks          │    │ │
+│               │  config_refresher_task     │    │ │
+│               │  env_watcher (base)        │    │ │
+│               │  env_local_watcher (local) │    │ │
+│               └───────────────────────────┘    │ │
 └───────────────────────────────────────────────────┘─┘
                             │
                    ┌────────▼────────┐
@@ -108,7 +109,8 @@ AssetOps is a web platform that centralises management of industrial assets acro
 
 ```
 .
-├── .env                          # Environment variables (never commit secrets)
+├── .env                          # Base environment variables (never commit secrets)
+├── .env.local                    # Local overrides — highest priority, not committed
 ├── docker-compose.yml            # Postgres container for local dev
 ├── pyproject.toml                # Project metadata and dependencies
 ├── alembic.ini                   # Alembic migration config
@@ -126,7 +128,7 @@ AssetOps is a web platform that centralises management of industrial assets acro
 │   │   └── config/
 │   │       ├── config.py         # Settings model (pydantic-settings)
 │   │       ├── config_manager.py # Runtime config merging (env + DB)
-│   │       └── config_background_tasks.py  # Env watcher + DB refresher tasks
+│   │       └── config_background_tasks.py  # watch_file_task, sync_base_env, sync_local_env, DB refresher
 │   │
 │   ├── db/
 │   │   └── postgres.py           # asyncpg connection pool factory
@@ -194,6 +196,12 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 ```
 
+Optionally create `.env.local` for local overrides (highest priority, not committed to git):
+
+```env
+APP_NAME=Local-override
+```
+
 ### 4. Run database migrations
 
 ```bash
@@ -219,20 +227,22 @@ curl http://localhost:8080/health
 
 ## Configuration
 
-Configuration is layered — env file values are the baseline, and DB values override them at runtime.
+Configuration is layered across three sources, applied in priority order:
 
 | Layer | Source | Priority |
 |---|---|---|
-| Defaults | `Settings` class field defaults | Lowest |
-| Env file | `.env` → read by `pydantic-settings` | Medium |
-| Database | `app_config` table | Highest |
+| Database | `app_config` table | Lowest (base) |
+| Base env file | `.env` → read by `pydantic-settings` | Medium |
+| Local env file | `.env.local` → read by `pydantic-settings` | Highest (overrides all) |
 
 On startup the application:
-1. Reads all settings from `.env` into a typed `Settings` object.
-2. Upserts them into the `app_config` table (skips unchanged values).
-3. Merges env defaults with DB rows into an in-memory `runtime_config`.
+1. Reads settings from both `.env` and `.env.local` into a typed `Settings` object (`.env.local` wins on conflict).
+2. Upserts `.env` values into the `app_config` table (skips unchanged values).
+3. Merges DB rows with local settings into an in-memory `runtime_config` (local settings win).
 
-A background task then watches `.env` for file changes and keeps the DB in sync automatically.
+Two background file watchers keep everything in sync automatically — no restart needed:
+- **`env_watcher`** — watches `.env`; syncs changed keys to DB, then refreshes in-memory config.
+- **`env_local_watcher`** — watches `.env.local`; reloads the in-memory `runtime_config` directly (no DB write).
 
 > See [docs/config-env-db-sync.md](docs/config-env-db-sync.md) for a full technical walkthrough.
 
@@ -267,14 +277,17 @@ uv run alembic current
 
 ## Background Tasks
 
-Two `asyncio` tasks run for the lifetime of the application:
+Three `asyncio` tasks run for the lifetime of the application:
 
-| Task | Trigger | Purpose |
-|---|---|---|
-| `config_refresher_task` | DB notification (`LISTEN app_config_changed`) | Reloads `app_config` from DB into runtime config immediately when any DB change occurs |
-| `env_file_watcher_task` | OS file-change event (watchfiles) | Reacts instantly when `.env` is saved; syncs only changed keys to DB, then refreshes runtime config |
+| Task key | Function | Trigger | Purpose |
+|---|---|---|---|
+| `config_refresher_task` | `config_refresher_task` | Periodic poll (60 s) | Re-reads `app_config` from DB and refreshes in-memory `runtime_config` |
+| `env_watcher` | `watch_file_task` + `sync_base_env` | OS file-change event on `.env` | Syncs only changed `.env` keys to DB via `call_sync_env_to_db`, then reloads runtime config |
+| `env_local_watcher` | `watch_file_task` + `sync_local_env` | OS file-change event on `.env.local` | Reloads in-memory `runtime_config` directly from disk — no DB write |
 
-Both tasks are started in `on_startup` and gracefully cancelled in `on_cleanup` via `asyncio.gather(return_exceptions=True)`.
+All three tasks are started in `on_startup` and gracefully cancelled in `on_cleanup` via `asyncio.gather(return_exceptions=True)`.
+
+The file watchers are powered by the generic **`watch_file_task(path, on_change, ...)`** coroutine, which accepts any async callback via the `on_change` parameter and supports an optional `run_on_start` flag to execute the callback immediately on startup.
 
 > Source: [`app/core/config/config_background_tasks.py`](app/core/config/config_background_tasks.py)
 
