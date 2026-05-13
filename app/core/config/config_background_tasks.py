@@ -125,8 +125,8 @@ async def call_sync_env_to_db(app):
 
     if updated_keys:
         logger.info(f"Env->DB sync: updated keys: {updated_keys}")
-        # Refresh in-memory runtime config to pick up the new values
-        await app["config_manager"].load(app)
+        # Not required as per the new requirement. 
+        # await app["config_manager"].load(app)
     else:
         logger.info("Env->DB sync: no value changes detected, DB left unchanged")
 
