@@ -8,7 +8,26 @@ from app.repositories.config_repository import sync_env_to_db
 
 logger = logging.getLogger(__name__)
 
-async def config_refresher_task(app, channel: str = "app_config_changed"):
+async def config_refresher_task(app, polling_secs: int = 60):
+    """
+    Background task: polls the database every 60 seconds to reload the in-memory runtime config.
+    """
+    config_manager = app["config_manager"]
+    pool = app["db"]
+
+    while True:
+        try:
+            async with pool.acquire() as conn:
+                await config_manager.load(app)
+            await asyncio.sleep(polling_secs)
+        except asyncio.CancelledError:
+            logger.info(f"Config Polling Task cancelled at {time.time()}")
+            break
+        except Exception as e:
+            logger.error(f"Config Polling Task encountered an error at {time.time()}: {e}. Retrying in {polling_secs}")
+            await asyncio.sleep(polling_secs)
+
+async def config_refresher_task_with_db_trigger(app, channel: str = "app_config_changed"):
     """
     Background task: listens for PostgreSQL notifications on the specified channel
     to reload the in-memory runtime config immediately when DB changes occur.
@@ -106,6 +125,6 @@ async def call_sync_env_to_db(app):
     if updated_keys:
         logger.info(f"Env->DB sync: updated keys: {updated_keys}")
         # Refresh in-memory runtime config to pick up the new values
-        await app["config_manager"].load(app, new_settings=new_settings)
+        await app["config_manager"].load(app)
     else:
         logger.info("Env->DB sync: no value changes detected, DB left unchanged")
