@@ -20,6 +20,9 @@ from app.core.config.config_background_tasks import (
     sync_base_env
 )
 
+from app.services.asset_services import AssetService
+from app.repositories.asset_repository import PostgresAssetRepository
+
 logger = logging.getLogger(__name__)
 
 async def on_startup(app):
@@ -30,6 +33,12 @@ async def on_startup(app):
     await config_manager.load(app)
 
     app["config_manager"] = config_manager
+    # Composition root: register a per-request factory that builds an
+    # AssetService with a fresh PostgresAssetRepository for each DB connection.
+    # In tests, replace this factory with one that returns a FakeAssetService.
+    app["asset_service_factory"] = lambda conn: AssetService(
+        repo=PostgresAssetRepository(conn)
+    )
     
     # Listen for DB notifications to reload runtime config immediately on DB edits.
     app["config_refresher_task"] = asyncio.create_task(
