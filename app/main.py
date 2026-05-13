@@ -15,7 +15,9 @@ from app.core.config.config import settings
 from app.core.config.config_manager import ConfigManager
 from app.core.config.config_background_tasks import (
     config_refresher_task,
-    env_file_watcher_task
+    watch_file_task,
+    sync_local_env,
+    sync_base_env
 )
 
 logger = logging.getLogger(__name__)
@@ -35,18 +37,35 @@ async def on_startup(app):
     )
     
     # Watch .env file for changes and sync only updated values to DB.
-    app["env_file_watcher_task"] = asyncio.create_task(
-        env_file_watcher_task(app)
+    app["env_watcher"] = asyncio.create_task(
+        watch_file_task(
+            task_name="base_env_watcher",
+            run_on_start=True,
+            path=".env",
+            on_change= lambda: sync_base_env(app)
+        )
+    )
+
+    # Watch .env.local file for changes and sync with in-memory settings.
+    app["env_local_watcher"] = asyncio.create_task(
+        watch_file_task(
+            task_name="local_env_watcher",
+            run_on_start=True,
+            path=".env.local",
+            on_change= lambda: sync_local_env(app)
+        )
     )
 
 async def on_cleanup(app):
     logger.info("Cancelling background tasks")
     app["config_refresher_task"].cancel()
-    app["env_file_watcher_task"].cancel()
+    app["env_watcher"].cancel()
+    app["env_local_watcher"].cancel()
     
     await asyncio.gather(
         app["config_refresher_task"],
-        app["env_file_watcher_task"],
+        app["env_watcher"],
+        app["env_local_watcher"],
         return_exceptions=True
     )
 

@@ -1,7 +1,8 @@
+from pydantic import warnings
 import time
 import asyncio
 import logging
-
+from collections.abc import Callable, Awaitable
 from watchfiles import awatch, Change
 
 from app.repositories.config_repository import sync_env_to_db
@@ -128,3 +129,61 @@ async def call_sync_env_to_db(app):
         await app["config_manager"].load(app)
     else:
         logger.info("Env->DB sync: no value changes detected, DB left unchanged")
+
+async def watch_file_task(
+    path: str,
+    on_change: Callable[[], Awaitable[None]],
+    task_name: str = "file_watcher",
+    run_on_start: bool = True,
+    *args,
+    **kwargs,
+):
+    """
+    Generic async file watcher using watchfiles.
+
+    - Watches a file using native OS events.
+    - Executes a callback whenever the file is modified/created.
+    - Optional initial startup execution.
+    """
+    async def onchange_callback(
+        on_change_func: Callable[[], Awaitable[None]],
+        *args, 
+        **kwargs
+    ):
+        try:
+            await on_change_func(*args, **kwargs)
+        except FileNotFoundError:
+            logger.warning(f"{task_name}: {path} file not found at startup")
+        except Exception as e:
+            logger.exception(f"{task_name} startup callback failed: {e}")
+
+    if run_on_start:
+        await onchange_callback(on_change, *args, **kwargs)
+    logger.info(f"{task_name} started - watching '{path}' for changes")
+    
+    try:
+        async for changes in awatch(path):
+            relevant = {
+                file_path
+                for change_type, file_path in changes
+                if change_type in (Change.modified, Change.added)
+            }
+            if not relevant:
+                continue
+
+            logger.info(f"{task_name}: file changed (event: {changes}); invoking callback")
+            await onchange_callback(on_change, *args, **kwargs)
+
+    except asyncio.CancelledError:
+        logger.info(f"{task_name} cancelled at {time.time()}")
+    except Exception as e:
+        logger.error(f"{task_name} encountered a fatal error: {e}")
+
+async def sync_base_env(app):
+    await call_sync_env_to_db(app)
+
+async def sync_local_env(app):
+    try:
+        await app["config_manager"].load(app)
+    except Exception as e:
+        logger.error(f"local env update failed: {e}")
