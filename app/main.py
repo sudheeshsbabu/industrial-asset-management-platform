@@ -24,7 +24,7 @@ async def on_startup(app):
     logger.info("Creating db pool")
     app["db"] = await create_db_pool()
 
-    config_manager = ConfigManager(settings)
+    config_manager = ConfigManager()
     await config_manager.load(app)
 
     app["config_manager"] = config_manager
