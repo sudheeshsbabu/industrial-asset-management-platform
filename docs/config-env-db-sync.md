@@ -8,31 +8,26 @@
 ## The Core Idea — Zero-Restart Config Updates
 
 > The application **never needs to be restarted** to pick up a configuration change.
-> Edit `.env` (or update the DB directly) and the running app reflects the new values
-> within milliseconds.
+> Edit `.env` or `.env.local` (or update the DB directly) and the running app reflects
+> the new values within milliseconds.
 
-The entire system is built around a single self-reinforcing loop:
+The system uses three layered sources of truth:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
+│  Priority (lowest → highest)                                    │
 │                                                                 │
-│   1. Developer/ops edits .env                                   │
+│   DB (app_config table)                                         │
+│          ↑  upserted from .env on startup / on .env change      │
+│   .env   (base settings)                                        │
+│          ↑  overridden by .env.local when both exist            │
+│   .env.local  (local developer overrides)                       │
 │          │                                                      │
-│          ▼  (OS file-change event — no polling)                 │
-│   2. watchfiles detects the save instantly                      │
-│          │                                                      │
-│          ▼                                                      │
-│   3. Changed keys are upserted into app_config (PostgreSQL)     │
-│          │                                                      │
-│          ▼  (PostgreSQL NOTIFY fired by DB trigger)             │
-│   4. asyncpg LISTEN callback wakes immediately                  │
+│          ▼  ConfigManager.load_local_settings()                 │
+│   runtime_config (in-memory merged dict)                        │
 │          │                                                      │
 │          ▼                                                      │
-│   5. ConfigManager reloads pydantic Settings from DB            │
-│          │                                                      │
-│          ▼                                                      │
-│   6. runtime_config in memory is up to date — app serves        │
-│      the new values on the very next request                    │
+│   App serves config on every request                            │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -51,16 +46,17 @@ The entire system is built around a single self-reinforcing loop:
 
 ## Overview
 
-This feature automatically mirrors every setting defined in the `.env` file into
-the `app_config` PostgreSQL table and keeps the two in sync at runtime — without
+This feature automatically mirrors every setting defined in `.env` into the
+`app_config` PostgreSQL table and keeps everything in sync at runtime — without
 ever writing a value twice if nothing has changed.
 
-Two complementary mechanisms work together:
+Three complementary mechanisms work together:
 
-| Mechanism | When it runs | What it does |
-|---|---|---|
-| **Env file watcher** | Event-based (OS file-watch) | Receives immediate OS-level notification when `.env` is written → upserts only changed keys to DB → refreshes runtime config |
-| **DB config refresher** | Event-based (on DB notification) | Subscribes to PostgreSQL notifications (`LISTEN app_config_changed`) triggered by DB changes → re-reads `app_config` → updates runtime config |
+| Mechanism | Task key | When it runs | What it does |
+|---|---|---|---|
+| **Base env watcher** | `env_watcher` | OS file-change event on `.env` | Upserts only changed keys to DB via `sync_base_env` → refreshes runtime config |
+| **Local env watcher** | `env_local_watcher` | OS file-change event on `.env.local` | Reloads in-memory settings via `sync_local_env` — no DB write |
+| **DB config refresher** | `config_refresher_task` | Periodic poll (60 s) | Re-reads `app_config` from DB → updates runtime config |
 
 ---
 
@@ -180,32 +176,36 @@ Iterates over every key/value pair from `Settings.model_dump()` and calls `upser
 
 ```
 ConfigManager
-├── __init__(settings)     – stores the Settings instance, starts with empty runtime_config
-├── load(app, new_settings?)  – fetches DB, merges env + DB, stores in runtime_config
-├── import_from_env(app)   – dumps settings → sync_env_to_db (startup seed)
-└── get(key, default)      – read a runtime value by key
+├── __init__()               – no args; runtime_config starts empty
+├── load(app)                – calls load_local_settings(), fetches DB, merges, stores runtime_config
+├── load_local_settings()    – re-instantiates Settings(['.env', '.env.local'])
+├── import_from_env(app)     – dumps settings → sync_env_to_db (startup seed, on-demand)
+└── get(key, default)        – read a runtime value by key
 ```
 
-#### `load(app, new_settings=None)`
+#### `load(app)`
 
 ```
-env defaults (Settings.model_dump())
+load_local_settings()
+    Settings(_env_file=[".env", ".env.local"])   ← .env.local wins on conflict
+
+DB rows (fetch_db_configs)    ← loaded first (lower priority)
     +
-DB overrides (fetch_db_configs)        ← DB wins on conflict
+local settings model_dump()   ← overlaid on top (higher priority)
     =
 runtime_config dict
 ```
 
-The optional `new_settings` parameter lets the env-file watcher pass a freshly
-re-instantiated `Settings` object so the updated env values are reflected in
-`runtime_config` immediately after a sync.
+**Priority reversal vs. earlier design:** DB values no longer win over env values.
+Local settings (including `.env.local` overrides) always take the highest precedence
+in `runtime_config`. The DB remains the source of truth for admin-edited values that
+have no corresponding `.env` entry.
 
 #### `import_from_env(app)`
 
-> **Note:** This method exists on `ConfigManager` but is **not called in `on_startup` in the
-> current version of `main.py`**. The initial env→DB sync is instead performed
-> inside `env_file_watcher_task` on first start (see §5 below). `import_from_env`
-> can be called explicitly if a one-shot startup seed is preferred.
+> **Note:** This is available for a one-shot startup seed but is not called
+> directly in `on_startup`. The initial `.env → DB` sync is performed by
+> `env_watcher` at startup via `run_on_start=True` (see §5 below).
 
 ---
 
@@ -213,53 +213,81 @@ re-instantiated `Settings` object so the updated env values are reflected in
 
 **File:** [`app/core/config/config_background_tasks.py`](../app/core/config/config_background_tasks.py)
 
-Two long-running `asyncio` coroutines are created as tasks in `on_startup`.
+Three long-running `asyncio` tasks are created in `on_startup`.
 
 ---
 
-#### `config_refresher_task(app, channel="app_config_changed")`
+#### `config_refresher_task(app, polling_secs=60)`
 
 ```
-listen on 'app_config_changed' channel:
-    on notification received:
-        ConfigManager.load(app)
-            → fetch app_config from DB
-            → merge with current env defaults
-            → update runtime_config in memory
+every 60 seconds:
+    ConfigManager.load(app)
+        → load_local_settings()   ← re-reads .env + .env.local
+        → fetch app_config from DB
+        → merge → update runtime_config
 ```
 
-Purpose: picks up any **manual changes made directly in the DB** (e.g. via `psql` or an admin tool) immediately without restarting the application, powered by a database trigger sending `NOTIFY app_config_changed`.
+Purpose: periodically reconciles in-memory config with the DB, picking up any
+**admin changes made directly** in the `app_config` table.
 
 ---
 
-#### `env_file_watcher_task(app, env_path=".env")`
+#### `watch_file_task(path, on_change, task_name, run_on_start)` — generic watcher
+
+A reusable coroutine that watches any file for OS-level change events and invokes
+an async callback. Used for both env file watchers.
 
 ```
-on startup:
-    call call_sync_env_to_db(app)    ← initial import
+if run_on_start:
+    await onchange_callback(on_change)   ← runs callback immediately on startup
 
-wait for OS file-change event on .env (watchfiles / native OS API):
+wait for OS file-change event (watchfiles / native OS API):
     on modified or added event:
-        call call_sync_env_to_db(app)
+        await onchange_callback(on_change)
     on deleted / other events:
         skip
 ```
 
-`watchfiles` uses **ReadDirectoryChangesW** on Windows, **inotify** on Linux, and **FSEvents** on macOS — zero polling, instant notification.
+`onchange_callback` is a nested async helper that wraps the callback with
+`FileNotFoundError` and generic exception handling.
+
+`watchfiles` uses **ReadDirectoryChangesW** on Windows, **inotify** on Linux,
+and **FSEvents** on macOS — zero polling, instant notification.
+
+---
+
+#### `sync_base_env(app)` — callback for `env_watcher`
+
+```
+await call_sync_env_to_db(app)
+    → Settings()              ← re-reads .env from disk
+    → sync_env_to_db()        ← upsert only changed keys
+    → ConfigManager.load(app) ← refresh runtime_config if anything changed
+```
+
+#### `sync_local_env(app)` — callback for `env_local_watcher`
+
+```
+await ConfigManager.load(app)
+    → load_local_settings()   ← re-reads .env + .env.local
+    → merge with DB rows
+    → update runtime_config
+```
+
+No DB write occurs — this path only refreshes the in-memory config.
 
 #### Helper — `call_sync_env_to_db(app)`
-
-Called both at startup and after every detected file change:
 
 ```
 Settings()                     ← re-reads .env from disk
     ↓  model_dump()
 sync_env_to_db(conn, env_dict) ← upsert only changed keys
     ↓  if any updated_keys
-ConfigManager.load(app, new_settings)  ← refresh runtime_config immediately
+ConfigManager.load(app)        ← refresh runtime_config immediately
 ```
 
-**If nothing changed** in the file since last poll, `upsert_config` returns `False` for every key and no DB write occurs. `updated_at` is not touched.
+**If nothing changed**, `upsert_config` returns `False` for every key — no DB write,
+`updated_at` is not touched.
 
 ---
 
@@ -271,33 +299,49 @@ ConfigManager.load(app, new_settings)  ← refresh runtime_config immediately
 async def on_startup(app):
     app["db"] = await create_db_pool()
 
-    config_manager = ConfigManager(settings)
+    config_manager = ConfigManager()        # no args — reads .env + .env.local internally
     await config_manager.load(app)          # initial in-memory load
     app["config_manager"] = config_manager
 
-    # Task 1: listen for DB notifications → update runtime_config immediately
-    app["config_refresher_task"] = asyncio.create_task(config_refresher_task(app))
+    # Task 1: periodic DB poll → update runtime_config
+    app["config_refresher_task"] = asyncio.create_task(
+        config_refresher_task(app)
+    )
 
-    # Task 2: watch .env → sync changed keys to DB → update runtime_config
-    app["env_file_watcher_task"] = asyncio.create_task(env_file_watcher_task(app))
+    # Task 2: watch .env → sync changed keys to DB → refresh runtime_config
+    app["env_watcher"] = asyncio.create_task(
+        watch_file_task(
+            path=".env",
+            on_change=lambda: sync_base_env(app),
+            task_name="base_env_watcher",
+            run_on_start=True,
+        )
+    )
+
+    # Task 3: watch .env.local → reload in-memory settings (no DB write)
+    app["env_local_watcher"] = asyncio.create_task(
+        watch_file_task(
+            path=".env.local",
+            on_change=lambda: sync_local_env(app),
+            task_name="local_env_watcher",
+            run_on_start=True,
+        )
+    )
 ```
 
 ```python
 async def on_cleanup(app):
     app["config_refresher_task"].cancel()
-    app["env_file_watcher_task"].cancel()
+    app["env_watcher"].cancel()
+    app["env_local_watcher"].cancel()
     await asyncio.gather(
         app["config_refresher_task"],
-        app["env_file_watcher_task"],
+        app["env_watcher"],
+        app["env_local_watcher"],
         return_exceptions=True
     )
     await app["db"].close()
 ```
-
-> **Note:** `Task.cancel()` returns a `bool` and is not awaitable. The `await` before
-> each `.cancel()` call in the current code is a no-op (Python silently awaits the bool `True`
-> as a coroutine-like but it does not cause an error). The `asyncio.gather` below is
-> what actually waits for both tasks to finish their `CancelledError` handling.
 
 ---
 
@@ -310,44 +354,60 @@ app starts
     │
     ├─ create_db_pool()
     │
-    ├─ ConfigManager(settings)
+    ├─ ConfigManager()                        ← no args
     │       └─ load(app)
-    │               ├─ fetch_db_configs()   → reads current app_config table
-    │               └─ runtime_config = {**env_defaults, **db_rows}
+    │               ├─ load_local_settings()  ← Settings(['.env', '.env.local'])
+    │               ├─ fetch_db_configs()     → reads current app_config table
+    │               └─ runtime_config = {**db_rows, **local_settings}  ← local wins
     │
-    ├─ asyncio.create_task(config_refresher_task)
+    ├─ asyncio.create_task(config_refresher_task)      → polls DB every 60s
     │
-    └─ asyncio.create_task(env_file_watcher_task)
-                │
-                └─ call_sync_env_to_db()  ← initial .env → DB import
-                        ├─ Settings()     ← re-reads .env
-                        ├─ sync_env_to_db()
-                        │       └─ upsert_config() × N keys
-                        │               (skips keys already matching)
-                        └─ ConfigManager.load(app, new_settings)
+    ├─ asyncio.create_task(watch_file_task '.env')     → env_watcher
+    │       └─ run_on_start=True → sync_base_env(app)
+    │               └─ call_sync_env_to_db()
+    │                       ├─ Settings()     ← re-reads .env
+    │                       ├─ sync_env_to_db() → upsert_config() × N keys
+    │                       └─ ConfigManager.load(app) if any keys changed
+    │
+    └─ asyncio.create_task(watch_file_task '.env.local')  → env_local_watcher
+            └─ run_on_start=True → sync_local_env(app)
+                    └─ ConfigManager.load(app)  ← re-reads .env + .env.local
 ```
 
-### .env File Changed at Runtime
+### `.env` File Changed at Runtime
 
 ```
 .env edited by developer/ops
     │
     ├─ OS emits file-change event  →  watchfiles awatch() yields immediately
     │
-    └─ call_sync_env_to_db(app)
+    └─ sync_base_env(app) → call_sync_env_to_db(app)
             ├─ Settings()            ← new instance reads updated .env
             ├─ model_dump()          → {"APP_PORT": 9090, ...}
             ├─ sync_env_to_db()
             │       └─ upsert_config("APP_PORT", "9090")
-            │               SQL: INSERT … ON CONFLICT DO UPDATE WHERE value != '9090'
-            │               → value changed: write occurs, RETURNING key → True
-            │
+            │               → value changed: write occurs → True
             │       └─ upsert_config("APP_NAME", "AssetOps")
             │               → value unchanged: WHERE clause suppresses write → False
             │
-            ├─ updated_keys = ["APP_PORT"]   (only the changed key)
-            └─ ConfigManager.load(app, new_settings)
+            ├─ updated_keys = ["APP_PORT"]
+            └─ ConfigManager.load(app)
                     └─ runtime_config["APP_PORT"] = "9090"
+```
+
+### `.env.local` File Changed at Runtime
+
+```
+.env.local edited by developer
+    │
+    ├─ OS emits file-change event  →  watchfiles awatch() yields immediately
+    │
+    └─ sync_local_env(app)
+            └─ ConfigManager.load(app)
+                    ├─ load_local_settings()   ← re-reads .env + .env.local
+                    ├─ fetch_db_configs()       ← reads DB
+                    └─ runtime_config = {**db_rows, **local_settings}
+                            (no DB write — only in-memory update)
 ```
 
 
@@ -392,10 +452,11 @@ loop.
 
 | File | Role |
 |---|---|
-| [`.env`](../.env) | Source of truth for environment-specific settings |
+| [`.env`](../.env) | Base environment settings (never commit secrets) |
+| [`.env.local`](../.env.local) | Local developer overrides — highest priority, not committed |
 | [`app/core/config/config.py`](../app/core/config/config.py) | `Settings` model (pydantic-settings); maps env vars to typed fields |
-| [`app/core/config/config_manager.py`](../app/core/config/config_manager.py) | `ConfigManager` — holds `runtime_config`, orchestrates load & import |
-| [`app/core/config/config_background_tasks.py`](../app/core/config/config_background_tasks.py) | `config_refresher_task` + `env_file_watcher_task` + `call_sync_env_to_db` |
+| [`app/core/config/config_manager.py`](../app/core/config/config_manager.py) | `ConfigManager` — `load()`, `load_local_settings()`, `import_from_env()`, `get()` |
+| [`app/core/config/config_background_tasks.py`](../app/core/config/config_background_tasks.py) | `watch_file_task`, `sync_base_env`, `sync_local_env`, `call_sync_env_to_db`, `config_refresher_task` |
 | [`app/repositories/config_repository.py`](../app/repositories/config_repository.py) | All SQL for `app_config` — fetch, upsert, sync |
 | [`migrations/versions/6a5c1b09f820_create_app_config_table.py`](../migrations/versions/6a5c1b09f820_create_app_config_table.py) | Alembic migration: creates the `app_config` table |
 | [`migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py`](../migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py) | Alembic migration: adds PG trigger + `NOTIFY` function on `app_config` |
