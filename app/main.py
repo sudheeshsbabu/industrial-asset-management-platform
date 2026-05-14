@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from aiohttp import web
+import aiohttp_cors
 
 from app.db.postgres import create_db_pool
 from app.core.logging import setup_logging
@@ -98,6 +99,19 @@ def create_app():
 
     setup_asset_routes(app)
     setup_common_routes(app)
+
+    # Configure default CORS settings.
+    cors = aiohttp_cors.setup(app, defaults={
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_headers="*",
+        )
+    })
+
+    # Configure CORS on all routes.
+    for route in list(app.router.routes()):
+        cors.add(route)
 
     return app
 
