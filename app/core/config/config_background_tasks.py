@@ -1,11 +1,8 @@
-from pydantic import warnings
 import time
 import asyncio
 import logging
 from collections.abc import Callable, Awaitable
 from watchfiles import awatch, Change
-
-from app.repositories.config_repository import sync_env_to_db
 
 logger = logging.getLogger(__name__)
 
@@ -68,49 +65,6 @@ async def config_refresher_task_with_db_trigger(app, channel: str = "app_config_
             logger.error(f"Config refresh listener connection error: {e}. Retrying in 5 seconds...")
             await asyncio.sleep(5.0)
 
-async def env_file_watcher_task(app, env_path: str = ".env"):
-    """
-    Background task: watches the .env file for real filesystem events using
-    `watchfiles` (backed by native OS file-watch APIs — inotify on Linux,
-    FSEvents on macOS, ReadDirectoryChangesW on Windows).
-
-    Reacts immediately when a write/modify event is detected:
-      - The Settings class is re-instantiated to reload the latest env values.
-      - Only keys whose value differs from what is stored in the DB are written
-        (upsert with a WHERE clause guards against duplicate updates).
-      - The in-memory runtime config is refreshed immediately after any DB write.
-
-    No action is taken for file deletions or other non-modify events.
-    """
-    # Perform initial sync of env to DB on startup.
-    try:
-        await call_sync_env_to_db(app)
-    except FileNotFoundError:
-        logger.warning(f"Env file '{env_path}' not found on startup; watcher will still wait for it to appear")
-    except Exception as e:
-        logger.error(f"Initial env->DB sync failed: {e}")
-
-    logger.info(f"Env file watcher started - watching '{env_path}' for OS-level change events")
-
-    try:
-        async for changes in awatch(env_path):
-            # changes is a set of (Change, path) tuples.
-            # We only care about modifications (not deletions).
-            relevant = {path for change_type, path in changes if change_type in (Change.modified, Change.added)}
-            if not relevant:
-                continue
-
-            logger.info(f"Env file '{env_path}' changed (event: {changes}); syncing to DB ...")
-            try:
-                await call_sync_env_to_db(app)
-            except Exception as e:
-                logger.error(f"Env->DB sync failed after file change event: {e}")
-
-    except asyncio.CancelledError:
-        logger.info(f"Env file watcher task cancelled at {time.time()}")
-    except Exception as e:
-        logger.error(f"Env file watcher encountered a fatal error: {e}")
-
 async def call_sync_env_to_db(app):
     # --- Reload env settings fresh from the file ---
     
@@ -121,7 +75,8 @@ async def call_sync_env_to_db(app):
     
     # --- Sync only changed values to DB ---
     async with app["db"].acquire() as conn:
-        updated_keys = await sync_env_to_db(conn, env_dict)
+        service = app["config_service_factory"](conn)
+        updated_keys = await service.sync_dict(env_dict)
 
     if updated_keys:
         logger.info(f"Env->DB sync: updated keys: {updated_keys}")

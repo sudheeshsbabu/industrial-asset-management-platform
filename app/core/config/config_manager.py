@@ -1,13 +1,7 @@
-import asyncio
 import logging
 import time
 
 from app.core.config.config import Settings
-
-from app.repositories.config_repository import (
-    fetch_db_configs,
-    sync_env_to_db
-)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +17,8 @@ class ConfigManager:
         self.load_local_settings()
 
         async with app["db"].acquire() as conn:
-            db_config = await fetch_db_configs(conn)
+            service = app["config_service_factory"](conn)
+            db_config = await service.fetch_all()
 
         merged = {
             **db_config,
@@ -45,7 +40,8 @@ class ConfigManager:
         """
         env_dict = self.settings.model_dump()
         async with app["db"].acquire() as conn:
-            updated_keys = await sync_env_to_db(conn, env_dict)
+            service = app["config_service_factory"](conn)
+            updated_keys = await service.sync_dict(env_dict)
         
         if updated_keys:
             logger.info(f"Env->DB Import: inserted/updated keys: {updated_keys}")
