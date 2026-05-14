@@ -10,13 +10,18 @@ class PostgresAssetRepository:
     def __init__(self, conn):
         self.conn = conn
 
-    async def get_all(self) -> list:
+    async def get_all(self, limit: int = 10, offset: int = 0) -> list:
         query = """
             SELECT id, name, site, status
             FROM assets
-            ORDER BY id;
+            ORDER BY id
+            LIMIT $1 OFFSET $2;
         """
-        return await self.conn.fetch(query)
+        return await self.conn.fetch(query, limit, offset)
+    
+    async def count(self) -> int:
+        query = "SELECT COUNT(*) FROM assets;"
+        return await self.conn.fetchval(query)
 
     async def get_by_id(self, asset_id: int):
         query = """
