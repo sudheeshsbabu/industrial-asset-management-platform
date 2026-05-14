@@ -7,9 +7,9 @@ export interface Asset {
 
 export interface PaginatedResponse<T> {
     results: T[],
-    total_count: number,
+    count: number,
     page: number,
     page_size: number,
-    previous: string | null,
+    prev: string | null,
     next: string | null
 }

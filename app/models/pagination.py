@@ -9,6 +9,8 @@ class PaginatedResponse(BaseModel, Generic[T]):
     next: Optional[str]
     prev: Optional[str]
     results: List[T]
+    page: int
+    page_size: int
 
     @classmethod
     def build_paginated_response(
@@ -30,5 +32,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
             count=total_count,
             next=next_url,
             prev=prev_url,
-            results=results
+            results=results,
+            page=page,
+            page_size=page_size
         )
