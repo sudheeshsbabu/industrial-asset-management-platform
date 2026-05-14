@@ -14,7 +14,7 @@ from app.middleware.request_logger import request_logging_middleware
 from app.core.config.config import settings
 from app.core.config.config_manager import ConfigManager
 from app.core.config.config_background_tasks import (
-    config_refresher_task,
+    PollingRefreshStrategy,
     watch_file_task,
     sync_local_env,
     sync_base_env
@@ -42,9 +42,10 @@ async def on_startup(app):
 
     app["config_manager"] = config_manager
     
-    # Listen for DB notifications to reload runtime config immediately on DB edits.
+    # Strategy 1: DB Polling
+    strategy = PollingRefreshStrategy()
     app["config_refresher_task"] = asyncio.create_task(
-        config_refresher_task(app)
+        strategy.run(app)
     )
     
     # Watch .env file for changes and sync only updated values to DB.
