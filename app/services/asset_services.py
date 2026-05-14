@@ -17,9 +17,12 @@ class AssetService:
     def __init__(self, repo: AssetRepositoryProtocol):
         self._repo = repo
 
-    async def list_assets(self) -> list[AssetResponse]:
-        rows = await self._repo.get_all()
+    async def list_assets(self, limit: int = 10, offset: int = 0) -> list[AssetResponse]:
+        rows = await self._repo.get_all(limit=limit, offset=offset)
         return [AssetResponse(**dict(row)) for row in rows]
+
+    async def count_assets(self) -> int:
+        return await self._repo.count()
 
     async def fetch_asset(self, asset_id: int) -> AssetResponse:
         row = await self._repo.get_by_id(asset_id=asset_id)

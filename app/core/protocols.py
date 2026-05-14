@@ -11,7 +11,10 @@ class AssetRepositoryProtocol(Protocol):
     satisfies this protocol without needing to inherit from it.
     """
 
-    async def get_all(self):
+    async def get_all(self, limit: int = 10, offset: int = 0):
+        ...
+    
+    async def count(self) -> int:
         ...
 
     async def get_by_id(self, asset_id: int):
@@ -30,7 +33,10 @@ class AssetServiceProtocol(Protocol):
     service class.
     """
 
-    async def list_assets(self) -> list[AssetResponse]:
+    async def list_assets(self, limit: int = 10, offset: int = 0) -> list[AssetResponse]:
+        ...
+
+    async def count_assets(self) -> int:
         ...
 
     async def fetch_asset(self, asset_id: int) -> AssetResponse:
