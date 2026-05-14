@@ -21,24 +21,26 @@ from app.core.config.config_background_tasks import (
 )
 
 from app.services.asset_services import AssetService
+from app.services.config_services import ConfigService
 from app.repositories.asset_repository import PostgresAssetRepository
+from app.repositories.config_repository import PostgresConfigRepository
 
 logger = logging.getLogger(__name__)
 
 async def on_startup(app):
-    logger.info("Creating db pool")
     app["db"] = await create_db_pool()
+
+    app["asset_service_factory"] = lambda conn: AssetService(
+        repo=PostgresAssetRepository(conn)
+    )
+    app["config_service_factory"] = lambda conn: ConfigService(
+        repo=PostgresConfigRepository(conn)
+    )
 
     config_manager = ConfigManager()
     await config_manager.load(app)
 
     app["config_manager"] = config_manager
-    # Composition root: register a per-request factory that builds an
-    # AssetService with a fresh PostgresAssetRepository for each DB connection.
-    # In tests, replace this factory with one that returns a FakeAssetService.
-    app["asset_service_factory"] = lambda conn: AssetService(
-        repo=PostgresAssetRepository(conn)
-    )
     
     # Listen for DB notifications to reload runtime config immediately on DB edits.
     app["config_refresher_task"] = asyncio.create_task(
@@ -78,7 +80,6 @@ async def on_cleanup(app):
         return_exceptions=True
     )
 
-    logger.info("Closing db pool")
     await app["db"].close()
 
 
@@ -101,7 +102,6 @@ def create_app():
 
 if __name__ == "__main__":
     setup_logging()
-    logger.info(f"Starting app")
     app = create_app()
 
     web.run_app(
