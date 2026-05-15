@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-add-seed-app-config
+      author: sudheesh
+      runOnChange: true
+      changes:
+        - sqlFile:
+            path: ../procedures/add_app_config_procedure.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+        - sqlFile:
+            path: ../procedures/add_seed_config.sql
+            relativeToChangelogFile: true

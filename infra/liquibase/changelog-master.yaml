@@ -13,3 +13,6 @@ databaseChangeLog:
       file: changesets/006_create_audit_log_table.yaml
   - include:
       file: changesets/007_add_seed_assets.yaml
+  - include:
+      file: changesets/008_add_seed_app_config.yaml
+

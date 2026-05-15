@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: 003-create-notify-function
       author: sudheesh
+      runOnChange: true
       changes:
         - sqlFile:
             path: ../procedures/notify_app_config_change.sql

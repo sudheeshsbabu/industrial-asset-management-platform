@@ -8,7 +8,7 @@ BEGIN
         json_build_object(
             'table', TG_TABLE_NAME,
             'operation', TG_OP,
-            'key', COALESCE(NEW.config_key, OLD.config_key)
+            'key', COALESCE(NEW.key, OLD.key)
         )::text
     );
 
