@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./infra/postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d assetops"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d assetops" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
         condition: service_completed_successfully
     entrypoint:
       - /liquibase/docker-entrypoint.sh
-      - --defaultsFile=/liquibase/infra/liquibase/liquibase.properties
+      - --defaultsFile=/liquibase/infra/liquibase/liquibase.yaml
     command:
       - update
 
@@ -41,7 +41,7 @@ services:
     environment:
       PGPASSWORD: postgres
     command: >
-      sh -c "psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'assetops_lb'\" | grep -q 1 || psql -h postgres -U postgres -c \"CREATE DATABASE assetops_lb\""
+      sh -c "psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'assetops'\" | grep -q 1 || psql -h postgres -U postgres -c \"CREATE DATABASE assetops\""
 
 volumes:
   postgres_data:

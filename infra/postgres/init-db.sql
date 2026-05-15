@@ -1,1 +1,1 @@
-CREATE DATABASE assetops_lb;
+CREATE DATABASE assetops;

@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-create-add-asset-procedure
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../procedures/add_asset.sql
+            relativeToChangelogFile: true
+            splitStatements: false

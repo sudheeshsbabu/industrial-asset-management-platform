@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-create-app-config-table
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../tables/app_config.sql
+            relativeToChangelogFile: true
