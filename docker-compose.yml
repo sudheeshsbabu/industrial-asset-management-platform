@@ -27,8 +27,10 @@ services:
     depends_on:
       setup-db:
         condition: service_completed_successfully
-    command:
+    entrypoint:
+      - /liquibase/docker-entrypoint.sh
       - --defaultsFile=/liquibase/infra/liquibase/liquibase.properties
+    command:
       - update
 
   setup-db:
