@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="changesets/001_create_assets_table.xml"/>
+    <include file="changesets/002_create_app_config_table.xml"/>
+    <include file="changesets/003_create_notify_function.xml"/>
+    <include file="changesets/004_create_notify_trigger.xml"/>
+
+</databaseChangeLog>

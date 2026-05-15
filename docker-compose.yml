@@ -3,19 +3,43 @@ version: "3.9"
 services:
   postgres:
     image: postgres:16
-
     container_name: assetops-postgres
-
     environment:
       POSTGRES_DB: assetops
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-
     ports:
       - "5432:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d assetops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  liquibase:
+    build:
+      context: ./infra/liquibase
+    volumes:
+      - ./infra:/liquibase/infra
+    depends_on:
+      setup-db:
+        condition: service_completed_successfully
+    command:
+      - --defaultsFile=/liquibase/infra/liquibase/liquibase.properties
+      - update
+
+  setup-db:
+    image: postgres:16
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    command: >
+      sh -c "psql -h postgres -U postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'assetops_lb'\" | grep -q 1 || psql -h postgres -U postgres -c \"CREATE DATABASE assetops_lb\""
 
 volumes:
   postgres_data:
