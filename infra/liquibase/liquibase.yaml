@@ -4,3 +4,4 @@ liquibase:
   password: postgres
   changeLogFile: liquibase/changelog-master.yaml
   searchPath: /liquibase/infra
+  contexts: test # Always run test context locally

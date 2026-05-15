@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: 007-add-seed-assets
       author: sudheesh
+      context: test
       changes:
         - sqlFile:
             path: ../procedures/add_seed_assets.sql

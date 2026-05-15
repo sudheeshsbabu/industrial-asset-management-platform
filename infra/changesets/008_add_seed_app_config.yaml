@@ -3,6 +3,7 @@ databaseChangeLog:
       id: 008-add-seed-app-config
       author: sudheesh
       runOnChange: true
+      context: test
       changes:
         - sqlFile:
             path: ../procedures/add_app_config_procedure.sql
