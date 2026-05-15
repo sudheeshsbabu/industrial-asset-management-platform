@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-notify-function
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../procedures/notify_app_config_change.sql
+            relativeToChangelogFile: true
+            splitStatements: false

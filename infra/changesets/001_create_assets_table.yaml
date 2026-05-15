@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-assets-table
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../tables/assets.sql
+            relativeToChangelogFile: true

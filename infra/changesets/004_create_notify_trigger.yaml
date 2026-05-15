@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-notify-trigger
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../triggers/trg_app_config_change.sql
+            relativeToChangelogFile: true

@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-add-seed-assets
+      author: sudheesh
+      changes:
+        - sqlFile:
+            path: ../procedures/add_seed_assets.sql
+            relativeToChangelogFile: true
+            splitStatements: false

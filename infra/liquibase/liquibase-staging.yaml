@@ -1,0 +1,7 @@
+# Example of connecting to a different environment (Staging)
+liquibase:
+  url: jdbc:postgresql://staging-db-host:5432/assetops_staging
+  username: staging_admin
+  password: staging_password_here
+  changeLogFile: liquibase/changelog-master.yaml
+  searchPath: /liquibase/infra
