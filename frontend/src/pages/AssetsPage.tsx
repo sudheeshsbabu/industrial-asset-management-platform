@@ -40,27 +40,25 @@ function AssetsPage() {
         {
             field: "id",
             headerName: "ID",
-            width: 50
         },
         {
             field: "name",
             headerName: "Name",
-            width: 300
+            flex: 1
         },
         {
             field: "site",
             headerName: "Site",
-            width: 200
+            flex: 1
         },
         {
             field: "status",
             headerName: "Status",
-            width: 200
+            flex: 1
         },
         {
             field: "actions",
             headerName: "Actions",
-            width: 200,
             renderCell: (params) => (
                 <Button
                     variant="outlined"
