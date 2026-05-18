@@ -12,3 +12,11 @@ export async function getAssets(
     const response = await fetch(apiUrl);
     return response.json();
 }
+
+export async function getAssetById(
+    id: number
+): Promise<Asset> {
+    const apiUrl = `http://localhost:8080/assets/${id}`;
+    const response = await fetch(apiUrl);
+    return response.json();
+}

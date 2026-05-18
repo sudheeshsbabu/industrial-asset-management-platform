@@ -45,7 +45,7 @@ function AssetsPage() {
         {
             field: "name",
             headerName: "Name",
-            width: 200
+            width: 300
         },
         {
             field: "site",
@@ -55,7 +55,20 @@ function AssetsPage() {
         {
             field: "status",
             headerName: "Status",
-            width: 100
+            width: 200
+        },
+        {
+            field: "actions",
+            headerName: "Actions",
+            width: 200,
+            renderCell: (params) => (
+                <Button
+                    variant="outlined"
+                    onClick={() => navigate(`/assets/${params.row.id}`)}
+                >
+                    View
+                </Button>
+            )
         }
     ]
     return (
@@ -86,7 +99,7 @@ function AssetsPage() {
                     <DataGrid
                         columns={columns}
                         rows={assets}
-                        // disableRowSelectionOnClick
+                        disableRowSelectionOnClick
                         hideFooter
                     />
                     <Stack
