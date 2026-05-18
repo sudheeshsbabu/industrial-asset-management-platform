@@ -8,9 +8,9 @@ class PaginatedResponse(BaseModel, Generic[T]):
     count: int
     next: Optional[str]
     prev: Optional[str]
-    results: List[T]
     page: int
     page_size: int
+    results: List[T]
 
     @classmethod
     def build_paginated_response(
