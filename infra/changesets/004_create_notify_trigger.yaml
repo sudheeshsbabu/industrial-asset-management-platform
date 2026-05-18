@@ -6,3 +6,5 @@ databaseChangeLog:
         - sqlFile:
             path: ../triggers/trg_app_config_change.sql
             relativeToChangelogFile: true
+      rollback:
+        - sql: "DROP TRIGGER IF EXISTS trg_app_config_change ON app_config;"

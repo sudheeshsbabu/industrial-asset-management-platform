@@ -6,3 +6,5 @@ databaseChangeLog:
         - sqlFile:
             path: ../tables/app_config.sql
             relativeToChangelogFile: true
+      rollback:
+        - sql: "DROP TABLE IF EXISTS app_config;"

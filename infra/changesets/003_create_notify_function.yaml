@@ -8,3 +8,5 @@ databaseChangeLog:
             path: ../procedures/notify_app_config_change.sql
             relativeToChangelogFile: true
             splitStatements: false
+      rollback:
+        - sql: "DROP FUNCTION IF EXISTS notify_app_config_change() CASCADE;"

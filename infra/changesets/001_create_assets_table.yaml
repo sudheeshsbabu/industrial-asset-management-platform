@@ -6,3 +6,5 @@ databaseChangeLog:
         - sqlFile:
             path: ../tables/assets.sql
             relativeToChangelogFile: true
+      rollback:
+        - sql: "DROP TABLE IF EXISTS assets;"
