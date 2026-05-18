@@ -9,6 +9,7 @@ import {
 } from "@mui/material";
 
 import { createAsset } from "../services/assetService";
+import Header from "../components/common/Header"
 
 
 function AssetDetailPage() {
@@ -34,12 +35,17 @@ function AssetDetailPage() {
     }
     return (
         <Container sx={{ mt: 4 }}>
-            <Typography
-                variant="h4"
-                sx={{ mb: 3 }}
-            >
-                Create New Asset
-            </Typography>
+            <Header
+                title="Create New Asset"
+                actions={
+                    <Button
+                        variant="contained"
+                        onClick={() => navigate("/")}
+                    >
+                        Assets
+                    </Button>
+                }
+            />
             <form onSubmit={handleSubmit}>
                 <Stack spacing={2}>
                     <TextField
