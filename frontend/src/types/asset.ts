@@ -5,6 +5,11 @@ export interface Asset {
     status: string
 }
 
+export interface AssetResponse {
+    success: boolean,
+    data: Asset
+}
+
 export interface PaginatedResponse<T> {
     results: T[],
     count: number,
