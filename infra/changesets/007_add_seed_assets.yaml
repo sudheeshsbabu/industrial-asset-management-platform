@@ -8,3 +8,5 @@ databaseChangeLog:
             path: ../procedures/add_seed_assets.sql
             relativeToChangelogFile: true
             splitStatements: false
+      rollback:
+        - sql: "TRUNCATE TABLE assets RESTART IDENTITY;"

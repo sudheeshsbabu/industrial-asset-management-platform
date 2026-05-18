@@ -7,3 +7,5 @@ databaseChangeLog:
             path: ../procedures/add_asset.sql
             relativeToChangelogFile: true
             splitStatements: false
+      rollback:
+        - sql: "DROP PROCEDURE IF EXISTS add_asset(VARCHAR, VARCHAR, VARCHAR);"
