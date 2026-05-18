@@ -11,14 +11,26 @@ function AssetsPage() {
     const [page, setPage] = useState<number>(1);
     const [nextUrl, setNextUrl] = useState<string | null>(null);
     const [prevUrl, setPrevUrl] = useState<string | null>(null);
-    useEffect(() => {
-        async function loadAssets() {
+    const [loading, setLoading] = useState<boolean>(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function loadAssets() {
+        try {
+            setLoading(true)
+            setError(null);
             const data: PaginatedResponse<Asset> = await getAssets(page)
             setAssets(data.results);
             setCount(data.count);
             setNextUrl(data.next);
             setPrevUrl(data.prev);
+        } catch (error) {
+            setError("Failed to fetch assets")
+        } finally {
+            setLoading(false);
         }
+    }
+
+    useEffect(() => {
         loadAssets();
     }, [page]);
 
@@ -61,33 +73,39 @@ function AssetsPage() {
             <Typography sx={{ mt: 3 }}>
                 Total Assets: {count}
             </Typography>
-            <DataGrid
-                columns={columns}
-                rows={assets}
-                // disableRowSelectionOnClick
-                hideFooter
-            />
-            <Stack
-                direction="row"
-                spacing={2}
-                sx={{ mt: 2 }}
-            >
-                <Button
-                    variant="contained"
-                    disabled={!prevUrl}
-                    onClick={() => setPage(page - 1)}
-                >
-                    Previous
-                </Button>
-                <Typography>Page: {page}</Typography>
-                <Button
-                    variant="contained"
-                    disabled={!nextUrl}
-                    onClick={() => setPage(page + 1)}
-                >
-                    Next
-                </Button>
-            </Stack>
+            {loading && <Typography>Loading...</Typography>}
+            {!loading && (
+                <>
+                    <DataGrid
+                        columns={columns}
+                        rows={assets}
+                        // disableRowSelectionOnClick
+                        hideFooter
+                    />
+                    <Stack
+                        direction="row"
+                        spacing={2}
+                        sx={{ mt: 2 }}
+                    >
+                        <Button
+                            variant="contained"
+                            disabled={!prevUrl}
+                            onClick={() => setPage(page - 1)}
+                        >
+                            Previous
+                        </Button>
+                        <Typography>Page: {page}</Typography>
+                        <Button
+                            variant="contained"
+                            disabled={!nextUrl}
+                            onClick={() => setPage(page + 1)}
+                        >
+                            Next
+                        </Button>
+                    </Stack>
+                </>
+            )}
+            {error && <Typography color="error">{error}</Typography>}
         </Container>
     )
 }
