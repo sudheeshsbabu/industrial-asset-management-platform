@@ -3,39 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { Container, Typography, Button, Stack } from "@mui/material";
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
 
-import type { Asset, PaginatedResponse } from "../types/asset"
-import { getAssets } from "../services/assetService";
 import Header from "../components/common/Header";
+import { useAssets } from "../hooks/useAssets";
 
 function AssetsPage() {
-    const [assets, setAssets] = useState<Asset[]>([]);
-    const [count, setCount] = useState<number>(0);
-    const [page, setPage] = useState<number>(1);
-    const [nextUrl, setNextUrl] = useState<string | null>(null);
-    const [prevUrl, setPrevUrl] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
-
-    async function loadAssets() {
-        try {
-            setLoading(true)
-            setError(null);
-            const data: PaginatedResponse<Asset> = await getAssets(page)
-            setAssets(data.results);
-            setCount(data.count);
-            setNextUrl(data.next);
-            setPrevUrl(data.prev);
-        } catch (error) {
-            setError("Failed to fetch assets")
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        loadAssets();
-    }, [page]);
+    const [page, setPage] = useState<number>(1);
+    const { assets, count, nextUrl, prevUrl, loading, error } = useAssets(page);
 
     const columns: GridColDef[] = [
         {
