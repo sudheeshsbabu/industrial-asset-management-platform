@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Container, Typography, Button, Stack } from "@mui/material";
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
 
@@ -13,6 +14,7 @@ function AssetsPage() {
     const [prevUrl, setPrevUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const navigate = useNavigate();
 
     async function loadAssets() {
         try {
@@ -68,7 +70,12 @@ function AssetsPage() {
                 }}
             >
                 <Typography variant="h4">Assets</Typography>
-                <Button variant="contained">Add Asset</Button>
+                <Button
+                    variant="contained"
+                    onClick={() => navigate("/assets/create")}
+                >
+                    Add Asset
+                </Button>
             </Stack>
             <Typography sx={{ mt: 3 }}>
                 Total Assets: {count}
