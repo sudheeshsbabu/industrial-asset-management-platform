@@ -3,6 +3,7 @@ import { Container, Typography, Button, Stack } from "@mui/material";
 import { DataGrid, type GridColDef } from '@mui/x-data-grid'
 
 import type { Asset, PaginatedResponse } from "../types/asset"
+import { getAssets } from "../services/assetService";
 
 function AssetsPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
@@ -12,8 +13,7 @@ function AssetsPage() {
     const [prevUrl, setPrevUrl] = useState<string | null>(null);
     useEffect(() => {
         async function loadAssets() {
-            const response = await fetch(`http://localhost:8080/assets?page=${page}&page_size=10`)
-            const data: PaginatedResponse<Asset> = await response.json();
+            const data: PaginatedResponse<Asset> = await getAssets(page)
             setAssets(data.results);
             setCount(data.count);
             setNextUrl(data.next);
