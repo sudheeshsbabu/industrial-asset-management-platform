@@ -7,15 +7,20 @@ import type { Asset, PaginatedResponse } from "../types/asset"
 function AssetsPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
     const [count, setCount] = useState<number>(0);
+    const [page, setPage] = useState<number>(1);
+    const [nextUrl, setNextUrl] = useState<string | null>(null);
+    const [prevUrl, setPrevUrl] = useState<string | null>(null);
     useEffect(() => {
         async function loadAssets() {
-            const response = await fetch("http://localhost:8080/assets?page=1&page_size=10")
+            const response = await fetch(`http://localhost:8080/assets?page=${page}&page_size=10`)
             const data: PaginatedResponse<Asset> = await response.json();
             setAssets(data.results);
             setCount(data.count);
+            setNextUrl(data.next);
+            setPrevUrl(data.prev);
         }
         loadAssets();
-    }, []);
+    }, [page]);
 
     const columns: GridColDef[] = [
         {
@@ -62,6 +67,27 @@ function AssetsPage() {
                 // disableRowSelectionOnClick
                 hideFooter
             />
+            <Stack
+                direction="row"
+                spacing={2}
+                sx={{ mt: 2 }}
+            >
+                <Button
+                    variant="contained"
+                    disabled={!prevUrl}
+                    onClick={() => setPage(page - 1)}
+                >
+                    Previous
+                </Button>
+                <Typography>Page: {page}</Typography>
+                <Button
+                    variant="contained"
+                    disabled={!nextUrl}
+                    onClick={() => setPage(page + 1)}
+                >
+                    Next
+                </Button>
+            </Stack>
         </Container>
     )
 }
