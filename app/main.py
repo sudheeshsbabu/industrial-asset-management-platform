@@ -106,6 +106,7 @@ def create_app():
             allow_credentials=True,
             expose_headers="*",
             allow_headers="*",
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         )
     })
 
