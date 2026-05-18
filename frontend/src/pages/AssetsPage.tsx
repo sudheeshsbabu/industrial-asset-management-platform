@@ -5,6 +5,7 @@ import { DataGrid, type GridColDef } from '@mui/x-data-grid'
 
 import type { Asset, PaginatedResponse } from "../types/asset"
 import { getAssets } from "../services/assetService";
+import Header from "../components/common/Header";
 
 function AssetsPage() {
     const [assets, setAssets] = useState<Asset[]>([]);
@@ -71,23 +72,17 @@ function AssetsPage() {
     ]
     return (
         <Container>
-            <Stack
-                component="div"
-                direction="row"
-                sx={{
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    mt: 4
-                }}
-            >
-                <Typography variant="h4">Assets</Typography>
-                <Button
-                    variant="contained"
-                    onClick={() => navigate("/assets/create")}
-                >
-                    Add Asset
-                </Button>
-            </Stack>
+            <Header
+                title="Assets"
+                actions={
+                    <Button
+                        variant="contained"
+                        onClick={() => navigate("/assets/create")}
+                    >
+                        Add Asset
+                    </Button>
+                }
+            />
             <Typography sx={{ mt: 3 }}>
                 Total Assets: {count}
             </Typography>
