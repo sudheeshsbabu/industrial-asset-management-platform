@@ -32,7 +32,7 @@ class FakeAssetRepository:
             self._store[row["id"]] = row
             self._next_id = max(self._next_id, row['id'] + 1)
 
-    async def get_all(self) -> list[dict]:
+    async def get_all(self, limit: int = 10, offset: int = 0) -> list[dict]:
         return list(self._store.values())
         
     async def get_by_id(self, asset_id: int) -> dict | None:
