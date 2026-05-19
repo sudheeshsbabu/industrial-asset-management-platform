@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 011-update-asset-code-values
+      author: sudheesh
+      changes:
+        - sql:
+          sql: |
+            UPDATE assets
+            SET asset_code = 'ASSET-' || id
+            WHERE asset_code IS NULL;
+      rollback:
+        - sql:
+          sql: |
+            UPDATE assets
+            SET asset_code = NULL
+            WHERE asset_code IS NOT NULL;

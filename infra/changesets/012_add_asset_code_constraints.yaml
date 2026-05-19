@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 012-add-asset-code-constraints
+      author: sudheesh
+      changes:
+        - addNotNullConstraint:
+            tableName: assets
+            columnName: asset_code
+            columnDataType: VARCHAR(100)
+        - addUniqueConstraint:
+            tableName: assets
+            columnNames: asset_code
+            constraintName: unique_asset_code
+      rollback:
+        - dropUniqueConstraint:
+            tableName: assets
+            constraintName: unique_asset_code
+        - dropNotNullConstraint:
+            tableName: assets
+            columnName: asset_code
+            columnDataType: VARCHAR(100)
