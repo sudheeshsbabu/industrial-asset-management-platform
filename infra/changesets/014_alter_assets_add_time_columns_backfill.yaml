@@ -1,0 +1,17 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-alter-assets-add-time-columns-backfill
+      author: sudheesh
+      changes:
+        - sql:
+          sql: |
+            UPDATE assets
+            SET created_at = NOW(),
+                updated_at = NOW()
+            WHERE created_at IS NULL;
+      rollback:
+        - sql:
+          sql: |
+            UPDATE assets
+            SET created_at = NULL,
+            updated_at = NULL;

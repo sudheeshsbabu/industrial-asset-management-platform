@@ -23,3 +23,12 @@ databaseChangeLog:
       file: changesets/011_update_asset_code_values.yaml
   - include:
       file: changesets/012_add_asset_code_constraints.yaml
+  - include:
+      file: changesets/013_alter_assets_add_time_columns.yaml
+  - include:
+      file: changesets/014_alter_assets_add_time_columns_backfill.yaml
+  - include:
+      file: changesets/015_alter_assets_add_time_columns_constraints.yaml
+  - include:
+      file: changesets/016_alter_assets_time_default.yaml
+
