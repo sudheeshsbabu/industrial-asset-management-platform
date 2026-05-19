@@ -1,0 +1,22 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-alter-assets-add-time-columns-backfill
+      author: sudheesh
+      changes:
+        - addNotNullConstraint:
+            tableName: assets
+            columnName: created_at
+            columnDataType: TIMESTAMP
+        - addNotNullConstraint:
+            tableName: assets
+            columnName: updated_at
+            columnDataType: TIMESTAMP
+      rollback:
+        - dropNotNullConstraint:
+            tableName: assets
+            columnName: created_at
+            columnDataType: TIMESTAMP
+        - dropNotNullConstraint:
+            tableName: assets
+            columnName: updated_at
+            columnDataType: TIMESTAMP

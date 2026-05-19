@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-alter-assets-add-time-columns
+      author: sudheesh
+      changes:
+        - sql:
+          sql: |
+            ALTER TABLE assets 
+            ADD COLUMN created_at TIMESTAMP NULL,
+            ADD COLUMN updated_at TIMESTAMP NULL;
+      rollback:
+        - sql:
+          sql: |
+            ALTER TABLE assets 
+            DROP COLUMN created_at, 
+            DROP COLUMN updated_at;

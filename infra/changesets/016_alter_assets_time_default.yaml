@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 016-alter-assets-time-default
+      author: sudheesh
+      changes:
+        - addDefaultValue:
+            tableName: assets
+            columnName: created_at
+            defaultValueComputed: NOW()
+
+        - addDefaultValue:
+            tableName: assets
+            columnName: updated_at
+            defaultValueComputed: NOW()
