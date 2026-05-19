@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 010-alter-assets-add-asset-code
+      author: sudheesh
+      changes:
+        - sql:
+            sql: |
+              ALTER TABLE assets
+              ADD COLUMN asset_code VARCHAR(100) NULL;
+      rollback:
+        - sql:
+          sql: |
+            ALTER TABLE assets 
+            DROP COLUMN asset_code;

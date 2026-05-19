@@ -1,0 +1,16 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-alter-assets-add-columns
+      author: sudheesh
+      changes:
+        - sql:
+          sql: |
+            ALTER TABLE assets 
+            ADD COLUMN asset_uuid UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+            ADD COLUMN description VARCHAR(500);
+      rollback:
+        - sql:
+          sql: |
+            ALTER TABLE assets 
+            DROP COLUMN asset_uuid, 
+            DROP COLUMN description;
