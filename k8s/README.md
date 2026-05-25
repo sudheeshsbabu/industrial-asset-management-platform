@@ -59,7 +59,7 @@ From the project root:
 ```bash
 docker build -t assetops-backend:local .
 docker build -t assetops-frontend:local ./frontend
-docker build -t assetops-liquibase:local ./infra/liquibase
+docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:local .
 ```
 
 If the Liquibase image needs access to `infra/changesets`, `infra/tables`, `infra/procedures`, and related files, make sure those files are copied into the image. Docker Compose mounts `./infra` at runtime, but Kubernetes usually needs the files baked into the image or mounted through a ConfigMap.
@@ -164,7 +164,7 @@ If the browser still shows old frontend assets, hard refresh the page or reopen 
 After adding or editing Liquibase changesets:
 
 ```bash
-docker build -t assetops-liquibase:local ./infra/liquibase
+docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:local .
 kubectl delete job liquibase-update -n assetops --ignore-not-found
 kubectl apply -f k8s/liquibase-job.yaml
 kubectl logs job/liquibase-update -n assetops
@@ -196,7 +196,7 @@ Use this when backend, frontend, and migrations all changed:
 ```bash
 docker build -t assetops-backend:local .
 docker build -t assetops-frontend:local ./frontend
-docker build -t assetops-liquibase:local ./infra/liquibase
+docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:local .
 
 kubectl delete job liquibase-update -n assetops --ignore-not-found
 kubectl apply -f k8s/liquibase-job.yaml
@@ -345,4 +345,3 @@ Delete the entire local cluster:
 ```bash
 minikube delete
 ```
-

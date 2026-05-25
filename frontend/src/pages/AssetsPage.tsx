@@ -53,7 +53,7 @@ function AssetsPage() {
                         variant="contained"
                         onClick={() => navigate("/assets/create")}
                     >
-                        Add
+                        Add Asset
                     </Button>
                 }
             />
