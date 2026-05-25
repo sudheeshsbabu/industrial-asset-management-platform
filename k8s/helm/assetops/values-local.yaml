@@ -1,0 +1,17 @@
+backend:
+  image:
+    repository: assetops-backend
+    tag: v1
+    pullPolicy: Never
+
+frontend:
+  image:
+    repository: assetops-frontend
+    tag: v1
+    pullPolicy: Never
+
+liquibase:
+  image:
+    repository: assetops-liquibase
+    tag: v1
+    pullPolicy: Never
