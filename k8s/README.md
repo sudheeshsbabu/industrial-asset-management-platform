@@ -1,6 +1,6 @@
 # Local Kubernetes Deployment Guide
 
-This guide explains how to run the Industrial Asset Management Platform locally with Minikube and kubectl.
+This guide explains how to run the Industrial Asset Management Platform locally with Minikube, kubectl, and the included Helm chart.
 
 The expected local Kubernetes setup is:
 
@@ -17,6 +17,7 @@ Install and verify:
 docker --version
 kubectl version --client
 minikube version
+helm version
 ```
 
 Start Docker Desktop before starting Minikube.
@@ -33,6 +34,8 @@ The Minikube node should show `Ready`.
 ## Use Minikube Docker
 
 For local images with `imagePullPolicy: Never`, build images inside Minikube's Docker daemon.
+
+This is important because Minikube runs Kubernetes inside its own node. Images built with your normal Docker Desktop daemon are stored on your host machine, but Pods run inside the Minikube node. When a Deployment uses `imagePullPolicy: Never`, Kubernetes will not pull the image from Docker Hub or another registry. It will only start the Pod if the exact image name and tag already exist inside the node's container runtime.
 
 PowerShell:
 
@@ -52,6 +55,8 @@ Verify Docker is now pointing at Minikube:
 docker images
 ```
 
+Run the `docker-env` command again when you open a new terminal session.
+
 ## Build Local Images
 
 From the project root:
@@ -62,7 +67,130 @@ docker build -t assetops-frontend:local ./frontend
 docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:local .
 ```
 
+The raw Kubernetes manifests in `k8s/` use the `:local` tag. The Helm local values file uses the `:v1` tag by default, so build matching tags before installing with Helm:
+
+```bash
+docker build -t assetops-backend:v1 .
+docker build -t assetops-frontend:v1 ./frontend
+docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:v1 .
+```
+
 If the Liquibase image needs access to `infra/changesets`, `infra/tables`, `infra/procedures`, and related files, make sure those files are copied into the image. Docker Compose mounts `./infra` at runtime, but Kubernetes usually needs the files baked into the image or mounted through a ConfigMap.
+
+## Deploy with Helm
+
+The Helm chart lives at:
+
+```bash
+k8s/helm/assetops
+```
+
+The local override file is:
+
+```bash
+k8s/helm/assetops/values-local.yaml
+```
+
+It sets local image names and `imagePullPolicy: Never` for backend, frontend, and Liquibase:
+
+```yaml
+backend:
+  image:
+    repository: assetops-backend
+    tag: v1
+    pullPolicy: Never
+
+frontend:
+  image:
+    repository: assetops-frontend
+    tag: v1
+    pullPolicy: Never
+
+liquibase:
+  image:
+    repository: assetops-liquibase
+    tag: v1
+    pullPolicy: Never
+```
+
+Install or upgrade the release:
+
+```bash
+helm upgrade --install assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml --create-namespace
+```
+
+Check the Helm release:
+
+```bash
+helm status assetops -n assetops
+helm list -n assetops
+```
+
+Check the Kubernetes resources created by Helm:
+
+```bash
+kubectl get all -n assetops
+kubectl get pods -n assetops
+```
+
+Helm manages the release and renders Kubernetes objects. kubectl inspects and operates the actual live Kubernetes resources created by that release.
+
+Use Helm when you change chart templates or values:
+
+```bash
+helm upgrade assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml
+```
+
+Use kubectl when you need to inspect Pods, view logs, describe failures, restart Deployments, or port-forward Services:
+
+```bash
+kubectl describe pod <pod-name> -n assetops
+kubectl logs deployment/backend -n assetops
+kubectl rollout restart deployment/backend -n assetops
+kubectl port-forward service/frontend 80:80 -n assetops
+```
+
+## Helm Local Development Loop
+
+When rebuilding images with the same tag, such as `assetops-backend:v1`, Helm does not automatically know the image contents changed because the chart values are unchanged. Rebuild the image inside Minikube and restart the Deployment:
+
+```powershell
+minikube docker-env | Invoke-Expression
+
+docker build -t assetops-backend:v1 .
+docker build -t assetops-frontend:v1 ./frontend
+
+kubectl rollout restart deployment/backend -n assetops
+kubectl rollout restart deployment/frontend -n assetops
+
+kubectl rollout status deployment/backend -n assetops
+kubectl rollout status deployment/frontend -n assetops
+```
+
+For a Helm-only application update, build a new image tag and pass that tag to `helm upgrade`:
+
+```powershell
+docker build -t assetops-backend:v2 .
+docker build -t assetops-frontend:v2 ./frontend
+
+helm upgrade assetops ./k8s/helm/assetops `
+  -n assetops `
+  -f ./k8s/helm/assetops/values-local.yaml `
+  --set backend.image.tag=v2 `
+  --set frontend.image.tag=v2
+```
+
+Newer Helm 3 versions do not support the old `--recreate-pods` flag. Use `kubectl rollout restart` after rebuilding the same tag, or use a new image tag with `helm upgrade`.
+
+To rerun the Liquibase Job with Helm after rebuilding the same tag:
+
+```bash
+docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:v1 .
+
+kubectl delete job liquibase-update -n assetops --ignore-not-found
+helm upgrade assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml
+kubectl logs job/liquibase-update -n assetops
+```
 
 ## Apply Kubernetes Manifests
 
@@ -303,6 +431,91 @@ Delete recreated Pods manually:
 kubectl delete pod -l app=backend -n assetops
 kubectl delete pod -l app=frontend -n assetops
 ```
+
+## Useful Helm Commands
+
+Show release status:
+
+```bash
+helm status assetops -n assetops
+```
+
+List releases in the namespace:
+
+```bash
+helm list -n assetops
+```
+
+Preview rendered manifests without applying them:
+
+```bash
+helm template assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml
+```
+
+Preview an upgrade:
+
+```bash
+helm upgrade assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml --dry-run
+```
+
+Uninstall the Helm release:
+
+```bash
+helm uninstall assetops -n assetops
+```
+
+## Troubleshooting Image Errors
+
+If `helm status` or `kubectl get pods` shows `ErrImageNeverPull`, the Pod is configured with `imagePullPolicy: Never` and the exact image is missing inside the Kubernetes node.
+
+Check the image name and tag in the Pod:
+
+```bash
+kubectl describe pod <pod-name> -n assetops
+```
+
+Then build the matching image tag inside Minikube:
+
+```powershell
+minikube docker-env | Invoke-Expression
+docker build -t assetops-backend:v1 .
+docker build -t assetops-frontend:v1 ./frontend
+```
+
+Restart the affected Deployments:
+
+```bash
+kubectl rollout restart deployment/backend -n assetops
+kubectl rollout restart deployment/frontend -n assetops
+```
+
+Common causes:
+
+- Built `assetops-backend:local` but Helm is deploying `assetops-backend:v1`
+- Built the image before running `minikube docker-env | Invoke-Expression`
+- Opened a new terminal and forgot to run `minikube docker-env | Invoke-Expression` again
+- Changed code but reused the same image tag without restarting the Deployment
+
+If you use a real image registry instead of local Minikube images, push the images to that registry and change `pullPolicy` to `IfNotPresent` or `Always`.
+
+## Helm vs kubectl
+
+Use Helm to manage the release:
+
+- Install the app
+- Upgrade chart templates
+- Change values such as image tags, ports, or configuration
+- Uninstall the release
+
+Use kubectl to operate the live cluster:
+
+- Inspect Pods, Services, Jobs, and Deployments
+- Read logs
+- Describe failing resources
+- Restart Deployments after rebuilding the same local image tag
+- Port-forward Services for local access
+
+Both tools are part of the workflow. Helm owns the desired release configuration; kubectl talks directly to Kubernetes resources that are running now.
 
 ## Configuration Notes
 
