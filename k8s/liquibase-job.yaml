@@ -1,0 +1,18 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: liquibase-update
+  namespace: assetops
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: liquibase
+          image: assetops-liquibase:local
+          imagePullPolicy: Never
+          command:
+            - /liquibase/docker-entrypoint.sh
+          args:
+            - --defaultsFile=/liquibase/infra/liquibase/liquibase.yaml
+            - update

@@ -6,3 +6,9 @@ Rollback Last Change	docker compose run --rm liquibase rollbackCount 1
 Validate Changelogs	docker compose run --rm liquibase validate
 View SQL (Dry Run)	docker compose run --rm liquibase update-sql
 Sync Changelog	docker compose run --rm liquibase changelog-sync
+
+Kubernetes / Minikube
+Build Image	docker compose build liquibase
+Load Image	minikube image load assetops-liquibase:local
+Re-run Job	kubectl delete job liquibase-update -n assetops --ignore-not-found; kubectl apply -f k8s/liquibase-job.yaml
+View Logs	kubectl logs job/liquibase-update -n assetops
