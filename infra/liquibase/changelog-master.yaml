@@ -31,4 +31,6 @@ databaseChangeLog:
       file: changesets/015_alter_assets_add_time_columns_constraints.yaml
   - include:
       file: changesets/016_alter_assets_time_default.yaml
+  - include:
+      file: changesets/017_create_site_table.yaml
 
