@@ -89,7 +89,7 @@ ConfigManager.runtime_config  ◄── merged dict used by the rest of the app
 
 ### 1. Database Table — `app_config`
 
-**File:** [`migrations/versions/6a5c1b09f820_create_app_config_table.py`](../migrations/versions/6a5c1b09f820_create_app_config_table.py)
+**File:** [`infra/changesets/002_create_app_config_table.yaml`](../infra/changesets/002_create_app_config_table.yaml)
 
 ```sql
 CREATE TABLE app_config (
@@ -458,6 +458,7 @@ loop.
 | [`app/core/config/config_manager.py`](../app/core/config/config_manager.py) | `ConfigManager` — `load()`, `load_local_settings()`, `import_from_env()`, `get()` |
 | [`app/core/config/config_background_tasks.py`](../app/core/config/config_background_tasks.py) | `watch_file_task`, `sync_base_env`, `sync_local_env`, `call_sync_env_to_db`, `config_refresher_task` |
 | [`app/repositories/config_repository.py`](../app/repositories/config_repository.py) | All SQL for `app_config` — fetch, upsert, sync |
-| [`migrations/versions/6a5c1b09f820_create_app_config_table.py`](../migrations/versions/6a5c1b09f820_create_app_config_table.py) | Alembic migration: creates the `app_config` table |
-| [`migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py`](../migrations/versions/7b6d2c10e931_add_notify_trigger_to_app_config.py) | Alembic migration: adds PG trigger + `NOTIFY` function on `app_config` |
+| [`infra/changesets/002_create_app_config_table.yaml`](../infra/changesets/002_create_app_config_table.yaml) | Liquibase changeset: creates the `app_config` table |
+| [`infra/changesets/003_create_notify_function.yaml`](../infra/changesets/003_create_notify_function.yaml) | Liquibase changeset: creates the PG `NOTIFY` function for `app_config` |
+| [`infra/changesets/004_create_notify_trigger.yaml`](../infra/changesets/004_create_notify_trigger.yaml) | Liquibase changeset: adds the PG trigger on `app_config` |
 | [`app/main.py`](../app/main.py) | Wires tasks into aiohttp lifecycle (`on_startup` / `on_cleanup`) |
