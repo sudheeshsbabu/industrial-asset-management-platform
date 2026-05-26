@@ -8,7 +8,6 @@ dependencies = [
     "aiohttp>=3.13.5",
     "aiohttp-cors>=0.8.1",
     "aiohttp-devtools>=1.1.2",
-    "alembic>=1.18.4",
     "asyncpg>=0.31.0",
     "psycopg2-binary>=2.9.12",
     "pydantic>=2.13.4",

@@ -14,7 +14,6 @@ This repository demonstrates:
 - Runtime configuration layering from database rows, `.env`, and `.env.local`.
 - Background tasks that refresh configuration and watch environment files.
 - Liquibase database changesets for Kubernetes and Docker workflows.
-- Alembic migration support for backend development history.
 - Docker Compose for local service orchestration.
 - Kubernetes manifests and a Helm chart for deploying backend, frontend, Postgres, and Liquibase.
 
@@ -55,7 +54,7 @@ liquibase Kubernetes Job
 | Backend | Python 3.14, aiohttp, aiohttp-cors, asyncpg, pydantic, pydantic-settings |
 | Frontend | React 19, Vite, TypeScript, MUI, React Router, React Query, Zustand, Axios |
 | Database | PostgreSQL 16 |
-| Migrations | Liquibase changesets, Alembic migration history |
+| Migrations | Liquibase changesets |
 | Local runtime | Docker, Docker Compose, uv |
 | Kubernetes | kubectl, Minikube, Helm |
 | Tests | pytest, pytest-asyncio |
@@ -104,7 +103,6 @@ liquibase Kubernetes Job
 |   |-- helm/assetops/           # Helm chart
 |   `-- README.md                # Kubernetes deployment guide
 |
-|-- migrations/                  # Alembic migration history
 |-- tests/                       # unit and integration tests
 |-- docker-compose.yml           # local Postgres/Liquibase workflow
 |-- Dockerfile                   # backend image
@@ -132,12 +130,6 @@ Install Python dependencies:
 
 ```bash
 uv sync
-```
-
-Run Alembic migrations for the backend dev database:
-
-```bash
-uv run alembic upgrade head
 ```
 
 Start the backend:
@@ -188,21 +180,12 @@ For the deeper implementation notes, see [docs/config-env-db-sync.md](docs/confi
 The project contains two migration-oriented workflows:
 
 - Liquibase under [infra/](infra/) for containerized and Kubernetes deployment flows.
-- Alembic under [migrations/](migrations/) for Python backend migration history.
 
 Useful Liquibase commands through Docker Compose:
 
 ```bash
 docker compose run --rm liquibase validate
 docker compose run --rm liquibase update-sql
-```
-
-Useful Alembic commands:
-
-```bash
-uv run alembic upgrade head
-uv run alembic current
-uv run alembic revision --autogenerate -m "describe your change"
 ```
 
 ## Kubernetes and Helm
