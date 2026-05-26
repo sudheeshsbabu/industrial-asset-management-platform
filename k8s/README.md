@@ -187,10 +187,12 @@ To rerun the Liquibase Job with Helm after rebuilding the same tag:
 ```bash
 docker build -f infra/liquibase/Dockerfile -t assetops-liquibase:v1 .
 
-kubectl delete job liquibase-update -n assetops --ignore-not-found
 helm upgrade assetops ./k8s/helm/assetops -n assetops -f ./k8s/helm/assetops/values-local.yaml
 kubectl logs job/liquibase-update -n assetops
 ```
+
+The Helm chart runs Liquibase as a `pre-install,pre-upgrade` hook and deletes the
+previous hook Job before creating the next one.
 
 ## Apply Kubernetes Manifests
 
@@ -215,6 +217,7 @@ kubectl logs deployment/postgres -n assetops
 Run migrations:
 
 ```bash
+kubectl delete job liquibase-update -n assetops --ignore-not-found
 kubectl apply -f k8s/liquibase-job.yaml
 kubectl logs job/liquibase-update -n assetops
 ```
