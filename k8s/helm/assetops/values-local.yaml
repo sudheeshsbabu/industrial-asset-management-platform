@@ -1,7 +1,7 @@
 backend:
   image:
     repository: assetops-backend
-    tag: v1
+    tag: v2
     pullPolicy: Never
 
 frontend:
